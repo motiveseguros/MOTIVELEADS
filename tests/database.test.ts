@@ -180,55 +180,185 @@ describe("permissões e RLS reais", () => {
   });
 });
 describe("atribuição e transferência", () => {
-  it("atribui funcionário compatível com responsável e data", async () => {
-    const id = await createLead();
-    await assign(id);
-    const r = await admin<{
-      status: string;
-      assigned_employee_id: string;
-      assigned_at: string;
-    }>("select * from public.leads where id=$1", [id]);
-    expect(r.rows[0]).toMatchObject({
-      status: "ASSIGNED",
-      assigned_employee_id: agentEmployee,
-    });
-    expect(r.rows[0].assigned_at).toBeTruthy();
-  });
-  it.each(["BUSY", "AWAY", "OFFLINE"])(
-    "recusa funcionário %s sem gerar histórico",
-    async (availability) => {
-      const id = await createLead();
-      await admin("select public.set_availability($1,$2)", [
-        agentEmployee,
-        availability,
-      ]);
-      await expect(assign(id)).rejects.toThrow("disponível");
-      expect(
-        (await admin("select * from public.lead_events where lead_id=$1", [id]))
-          .rows,
-      ).toHaveLength(1);
-    },
-  );
-  it("recusa funcionário inativo", async () => {
-    const id = await createLead();
-    await db.query("update public.employees set active=false where id=$1", [
-      agentEmployee,
-    ]);
-    await expect(assign(id)).rejects.toThrow("disponível");
-  });
-  it("recusa especialidade incompatível", async () => {
-    const id = await createLead();
-    await db.query(
-      "delete from public.employee_products where employee_id=$1",
-      [agentEmployee],
+  const availabilityValues = ["AVAILABLE", "BUSY", "AWAY", "OFFLINE"];
+  for (const transfer of [false, true]) {
+    const operation = transfer ? "transferência" : "atribuição";
+    it.each(availabilityValues)(
+      operation + " para %s mantém responsável, status e histórico",
+      async (availability) => {
+        const id = await createLead();
+        if (transfer) {
+          await assign(id);
+          await agent(
+            "select public.transition_lead($1,'IN_PROGRESS','ASSIGNED')",
+            [id],
+          );
+        }
+        const destination = transfer ? otherEmployee : agentEmployee;
+        await admin("select public.set_availability($1,$2)", [
+          destination,
+          availability,
+        ]);
+        await assign(id, destination, transfer ? agentEmployee : null);
+        const lead = (
+          await admin<{
+            status: string;
+            assigned_employee_id: string;
+            assigned_at: string;
+          }>("select * from public.leads where id=$1", [id])
+        ).rows[0];
+        expect(lead).toMatchObject({
+          status: "ASSIGNED",
+          assigned_employee_id: destination,
+        });
+        expect(lead.assigned_at).toBeTruthy();
+        const events = (
+          await admin<{
+            actor_id: string;
+            action: string;
+            data: {
+              employee_id: string;
+              previous_employee_id: string | null;
+              previous_status: string;
+            };
+          }>("select * from public.lead_events where lead_id=$1", [id])
+        ).rows;
+        expect(events).toHaveLength(transfer ? 4 : 2);
+        expect(
+          events.filter(
+            (event) => event.action === (transfer ? "TRANSFERRED" : "ASSIGNED"),
+          ),
+        ).toEqual([
+          expect.objectContaining({
+            actor_id: adminId,
+            data: expect.objectContaining({
+              employee_id: destination,
+              previous_employee_id: transfer ? agentEmployee : null,
+              previous_status: transfer ? "IN_PROGRESS" : "NEW",
+            }),
+          }),
+        ]);
+        const employee = (
+          await db.query<{ availability: string }>(
+            "select availability from public.employees where id=$1",
+            [destination],
+          )
+        ).rows[0];
+        expect(employee.availability).toBe(availability);
+      },
     );
-    await expect(assign(id)).rejects.toThrow("não atende");
-  });
-  it("recusa atribuição feita por agente", async () => {
+    it.each(["inactive", "specialty", "product", "agent"] as const)(
+      operation + " continua bloqueando %s sem alterar lead ou histórico",
+      async (reason) => {
+        const id = await createLead();
+        if (transfer) await assign(id);
+        const destination = transfer ? otherEmployee : agentEmployee;
+        const expected = transfer ? agentEmployee : null;
+        const before = await admin("select * from public.leads where id=$1", [
+          id,
+        ]);
+        const eventsBefore = await admin(
+          "select * from public.lead_events where lead_id=$1 order by id",
+          [id],
+        );
+        // Every forbidden path uses an advisory (OFFLINE) availability.
+        await admin("select public.set_availability($1,'OFFLINE')", [
+          destination,
+        ]);
+        if (reason === "inactive")
+          await db.query(
+            "update public.employees set active=false where id=$1",
+            [destination],
+          );
+        if (reason === "specialty")
+          await db.query(
+            "delete from public.employee_products where employee_id=$1",
+            [destination],
+          );
+        if (reason === "product")
+          await db.query(
+            "update public.products set active=false where id=$1",
+            [product],
+          );
+        const operation =
+          reason === "agent"
+            ? agent("select public.assign_lead($1,$2,$3)", [
+                id,
+                destination,
+                expected,
+              ])
+            : assign(id, destination, expected);
+        const message = {
+          inactive: "inativo",
+          specialty: "não atende",
+          product: "Produto indisponível",
+          agent: "administrativo",
+        }[reason];
+        await expect(operation).rejects.toThrow(message);
+        expect(
+          (await admin("select * from public.leads where id=$1", [id])).rows,
+        ).toEqual(before.rows);
+        expect(
+          (
+            await admin(
+              "select * from public.lead_events where lead_id=$1 order by id",
+              [id],
+            )
+          ).rows,
+        ).toEqual(eventsBefore.rows);
+      },
+    );
+    it(
+      operation + " é revertida se a gravação do histórico falhar",
+      async () => {
+        const id = await createLead();
+        if (transfer) await assign(id);
+        const destination = transfer ? otherEmployee : agentEmployee;
+        await admin("select public.set_availability($1,'BUSY')", [destination]);
+        const before = await admin("select * from public.leads where id=$1", [
+          id,
+        ]);
+        const eventsBefore = await admin(
+          "select * from public.lead_events where lead_id=$1 order by id",
+          [id],
+        );
+        // Test-only fault injection: the real audit trigger must abort the entire operation.
+        await db.exec(
+          "alter table public.lead_events add constraint reject_assignment_test check (action not in ('ASSIGNED','TRANSFERRED')) not valid",
+        );
+        try {
+          await expect(
+            assign(id, destination, transfer ? agentEmployee : null),
+          ).rejects.toThrow("reject_assignment_test");
+        } finally {
+          await db.exec(
+            "alter table public.lead_events drop constraint reject_assignment_test",
+          );
+        }
+        expect(
+          (await admin("select * from public.leads where id=$1", [id])).rows,
+        ).toEqual(before.rows);
+        expect(
+          (
+            await admin(
+              "select * from public.lead_events where lead_id=$1 order by id",
+              [id],
+            )
+          ).rows,
+        ).toEqual(eventsBefore.rows);
+      },
+    );
+  }
+  it("anônimo continua sem executar assign_lead após substituição da RPC", async () => {
     const id = await createLead();
-    await expect(
-      agent("select public.assign_lead($1,$2,null)", [id, agentEmployee]),
-    ).rejects.toThrow("administrativo");
+    await db.exec("set role anon");
+    try {
+      await expect(
+        db.query("select public.assign_lead($1,$2,null)", [id, agentEmployee]),
+      ).rejects.toThrow("permission denied");
+    } finally {
+      await db.exec("reset role");
+    }
   });
   it("detecta operação com responsável desatualizado", async () => {
     const id = await createLead();
@@ -245,19 +375,18 @@ describe("atribuição e transferência", () => {
     expect(
       (await agent("select * from public.leads where id=$1", [id])).rows,
     ).toHaveLength(0);
-    const r = await admin<{ status: string }>(
-      "select status from public.leads where id=$1",
-      [id],
-    );
-    expect(r.rows[0].status).toBe("ASSIGNED");
+    expect(
+      (await agent("select * from public.lead_events where lead_id=$1", [id]))
+        .rows,
+    ).toHaveLength(0);
     expect(
       (
-        await admin(
-          "select * from public.lead_events where lead_id=$1 and action='TRANSFERRED'",
+        await admin<{ status: string }>(
+          "select status from public.leads where id=$1",
           [id],
         )
-      ).rows,
-    ).toHaveLength(1);
+      ).rows[0].status,
+    ).toBe("ASSIGNED");
   });
 });
 describe("transições de atendimento", () => {

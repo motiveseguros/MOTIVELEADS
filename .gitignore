@@ -5,3 +5,7 @@ node_modules/
 *.tsbuildinfo
 coverage/
 .supabase/
+supabase/.temp/
+
+# Local operational receipt for the exact homologation link; never credentials.
+.homologation/

@@ -1,12 +1,12 @@
-# MOTIVE LEADS — Fase 01
+# MOTIVE LEADS — Fase 02A
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
-Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. Não há WhatsApp, Meta Cloud API ou chatbot nesta fase.
+Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02A acrescenta infraestrutura local de conversas; não há conexão real à Meta, envio, chatbot ou coleta automática.
 
 ## Estado da entrega
 
-O código da Fase 01 está implementado. A execução conectada exige um projeto Supabase e as variáveis abaixo. Nenhuma credencial foi incluída. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
+A Fase 01 foi homologada no Supabase remoto pelo usuário, conforme informado em 27/10/2026. A infraestrutura da Fase 02A foi preparada localmente; as migrations novas ainda dependem de revisão e aplicação pelo operador. A execução conectada exige um projeto Supabase e as variáveis abaixo. Nenhuma credencial foi incluída. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
 
@@ -23,13 +23,16 @@ Requisitos: Node.js 22.12+ (validado com Node 24), pnpm, Git e Supabase CLI. Par
 
 ### Variáveis de ambiente
 
-| Variável                             | Onde é usada                | Valor                                            |
-| ------------------------------------ | --------------------------- | ------------------------------------------------ |
-| NEXT_PUBLIC_SUPABASE_URL             | SSR/proxy                   | URL do projeto Supabase                          |
-| NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | SSR/proxy; pode ser pública | Publishable key do projeto                       |
-| SUPABASE_SERVICE_ROLE_KEY            | Exclusivamente no servidor  | Service role do projeto para provisionar acessos |
+| Variável                             | Onde é usada                | Valor                                          |
+| ------------------------------------ | --------------------------- | ---------------------------------------------- |
+| NEXT_PUBLIC_SUPABASE_URL             | SSR/proxy                   | URL do projeto Supabase                        |
+| NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | SSR/proxy; pode ser pública | Publishable key do projeto                     |
+| SUPABASE_SECRET_KEY                  | Exclusivamente no servidor  | Secret key do projeto para provisionar acessos |
+| WHATSAPP_WEBHOOK_VERIFY_TOKEN        | Exclusivamente no servidor  | Futuro challenge GET; deixar vazio na Fase 02A |
 
-Somente as duas primeiras podem ser públicas. O módulo da service role importa server-only. Nunca prefixe essa chave com NEXT_PUBLIC, registre seu valor em logs ou a inclua no Git. .env.local está ignorado.
+Somente as duas primeiras podem ser públicas. O módulo administrativo importa server-only e usa SUPABASE_SECRET_KEY exclusivamente no servidor. Nunca prefixe essa chave com NEXT_PUBLIC, registre seu valor em logs ou a inclua no Git. .env.local está ignorado.
+
+Use as chaves atuais do Supabase: publishable key (`sb_publishable_...`) para os clientes públicos/SSR e secret key (`sb_secret_...`) para o cliente administrativo e o bootstrap. Configure `SUPABASE_SECRET_KEY` em .env.local e no ambiente do servidor; não há fallback para a variável antiga. Consulte a [documentação oficial de API keys](https://supabase.com/docs/guides/getting-started/api-keys).
 
 ### Banco local
 
@@ -48,7 +51,7 @@ supabase link --project-ref SEU_PROJECT_REF
 supabase db push
 ```
 
-As quatro migrations devem ser aplicadas em ordem. Não substitua migrations por alterações manuais no schema. Para bases já em uso, crie novas migrations, sem editar as antigas.
+As oito migrations devem ser aplicadas em ordem em instalações novas. Em ambientes que já possuem 001–005, revise as pendentes 006–008; se 001–007 já estiverem aplicadas, a correção A01/A02 exige somente 008. Não reaplique nem edite 001–007. Não substitua migrations por alterações manuais no schema. Para bases já em uso, crie novas migrations, sem editar as antigas.
 
 No projeto remoto, configure Auth para desabilitar cadastro público e usar senha mínima de 12 caracteres. O config.toml aplica essas configurações no ambiente local; ele não altera automaticamente as configurações do Auth remoto. Cadastros externos sem profile/employee ativo não recebem acesso aos dados da aplicação, mesmo se o signup estiver habilitado por engano.
 
@@ -89,7 +92,7 @@ pnpm build
 pnpm start
 ```
 
-Hospede em ambiente compatível com Next.js server-side. Defina as três variáveis no servidor de hospedagem. Não use exportação estática. Não configure cache compartilhado sobre páginas autenticadas ou respostas com Set-Cookie.
+Hospede em ambiente compatível com Next.js server-side. Defina as três variáveis Supabase no servidor de hospedagem. WHATSAPP_WEBHOOK_VERIFY_TOKEN é futura e deve permanecer vazia nesta fase. Não use exportação estática. Não configure cache compartilhado sobre páginas autenticadas ou respostas com Set-Cookie.
 
 ## Operação
 
@@ -100,7 +103,7 @@ Hospede em ambiente compatível com Next.js server-side. Defina as três variáv
 - Funcionários → Editar permite alterar nome, telefone, especialidades, acesso ativo e disponibilidade. O e-mail de acesso fica imutável nesta fase para evitar divergência com Auth.
 - Funcionários → Produtos cadastra, renomeia e ativa/desativa produtos. Nenhuma opção de produto é fixa no frontend.
 - Cadastrar lead → Abrir lead → Selecionar funcionário compatível → Atribuir.
-- Transferências exigem um novo responsável disponível e compatível; o status volta para ASSIGNED.
+- Transferências exigem um novo responsável ativo e compatível; o status volta para ASSIGNED.
 - Histórico mostra autor, ação, estado anterior/atual, responsáveis e data/hora.
 
 ### AGENT
@@ -116,8 +119,9 @@ Não há fluxo público de recuperação de senha nesta fase. O operador do proj
 ## Regras e decisões
 
 - Estados: NEW → ASSIGNED → IN_PROGRESS → CLOSED_WON ou CLOSED_LOST.
-- Atribuição/transferência: ADMIN; produto ativo; funcionário ativo, AVAILABLE e especializado no produto. O responsável atual não é um destino válido.
+- Atribuição/transferência: ADMIN; produto ativo; funcionário ativo e especializado no produto, independentemente de AVAILABLE/BUSY/AWAY/OFFLINE. O responsável atual não é um destino válido.
 - Encerrados não podem ser reabertos ou transferidos nesta fase.
+- A interface mostra a disponibilidade, prioriza AVAILABLE e exige confirmação explícita para BUSY, AWAY ou OFFLINE, tanto na atribuição quanto na transferência. A confirmação é operacional; a RPC aceita esses quatro estados e preserva a autorização exclusiva do ADMIN.
 - A disponibilidade é manual. Iniciar/encerrar atendimento não altera disponibilidade automaticamente e não limita a um único lead simultâneo.
 - ADMIN também pode iniciar/finalizar atendimento e mudar disponibilidade de funcionários.
 - Funcionários com leads abertos não podem ser desativados nem perder a especialidade correspondente; transfira primeiro.
@@ -133,15 +137,17 @@ Não há fluxo público de recuperação de senha nesta fase. O operador do proj
 ```text
 src/
   app/
-    (panel)/             dashboard, leads, funcionários, produtos e histórico
+    (panel)/             dashboard, leads, funcionários, produtos, histórico e conversas
     actions/             Server Actions: validação, autorização e RPC
     login/               login Supabase Auth
+    api/webhooks/whatsapp/ GET challenge e POST preparado, fechado por padrão
   components/
     ui/                  Button/Input shadcn/ui (New York)
     ...                  formulários, navegação, tabelas e histórico
   domain/                tipos, enums operacionais e schemas Zod
   lib/
     supabase/            clientes SSR e Admin server-only
+    whatsapp/            contratos, parsing, webhook, processamento, envio e leitura
     auth.ts              autenticação e autorização no servidor
     data.ts              consultas com cliente do usuário e RLS
     database.types.ts    contrato tipado do banco/RPC
@@ -158,7 +164,7 @@ tests/
 
 O proxy atualiza a sessão; cada ação também exige identidade verificada pelo Auth e perfil ativo consultado no banco. Os layouts protegem navegação, mas não são a única autorização.
 
-As regras críticas de atribuição e transição têm fonte de verdade no PostgreSQL. Server Actions validam tipos/formato com Zod e chamam RPCs; o cliente comum usa as credenciais do usuário. A service role é usada somente no cadastro de acessos, após requireAdmin(), e no bootstrap.
+As regras críticas de atribuição e transição têm fonte de verdade no PostgreSQL. Server Actions validam tipos/formato com Zod e chamam RPCs; o cliente comum usa as credenciais do usuário. A SUPABASE_SECRET_KEY é usada no cadastro de acessos, após requireAdmin(), no bootstrap e na camada server-only de ingestão WhatsApp. Esta última só poderá ser alcançada pelo POST após autenticação do corpo bruto; essa autenticação permanece não configurada nesta fase. A UI de conversas usa exclusivamente a sessão do usuário e RLS.
 
 Leitura usa RLS; escrita direta em tabelas é revogada para anon/authenticated, inclusive para ADMIN. RPCs SECURITY DEFINER têm search_path vazio, qualificam objetos explicitamente e verificam o ator. Funções privadas ficam no schema app_private, não exposto pela API.
 
@@ -185,6 +191,11 @@ Migrations:
 2. 202610230002_operations.sql — RPCs autorizadas para leads, equipe e catálogo.
 3. 202610230003_initial_products.sql — Seguro Auto e Consórcio.
 4. 202610230004_bootstrap_privileges.sql — leitura mínima para o bootstrap.
+5. 202610230005_assignment_availability_advisory.sql — disponibilidade informativa na atribuição/transferência, preservando bloqueios de inatividade, especialidade, produto e autorização.
+
+6. 202610270006_whatsapp_foundation.sql — tabelas, índices, RLS, timestamps e view de conversas com security_invoker.
+7. 202610270007_whatsapp_ingestion.sql — RPC de ingestão atômica, idempotência e estados de entrega monotônicos.
+8. 202610270008_whatsapp_ingestion_robustness.sql — substitui somente a RPC de ingestão para corrigir A01/A02; preserva tabelas, RLS, grants e histórico existente.
 
 Os tipos TypeScript refletem o schema versionado. Ao alterá-lo, sincronize database.types.ts e execute typecheck; é possível substituir o contrato por tipos gerados com supabase gen types typescript, mantendo a camada de domínio.
 
@@ -211,18 +222,138 @@ Versões são fixadas em package.json e pnpm-lock.yaml. ESLint 9 e TypeScript 5.
 3. Crie um lead fictício, abra, atribua ao agente compatível e confira responsável/histórico.
 4. Em outro navegador, entre como AGENT, altere disponibilidade, abra seu lead, inicie e finalize (teste ganho e perdido em leads distintos).
 5. Tente abrir o UUID de um lead do outro agente e confirme ausência de acesso.
-6. Teste transferência de lead aberto, falta de especialidade, agente indisponível, acesso inativo e dois administradores tentando atribuir simultaneamente.
+6. Teste transferência de lead aberto, falta de especialidade, destinos BUSY/AWAY/OFFLINE com confirmação operacional, acesso inativo e dois administradores tentando atribuir simultaneamente.
 7. Confira cookies, renovação/expiração de sessão, logout, navegação responsiva e mensagens de erro.
 
-## Evolução para WhatsApp
+## Infraestrutura WhatsApp — Fase 02A
 
-Somente arquitetura/documentação nesta fase. Nenhuma tabela, credencial, SDK, webhook ou automação WhatsApp foi implementada.
+O fluxo preparado é **WhatsApp → Contact → Conversation → coleta futura → Lead → distribuição**. Um contato pode não ter nome, e-mail, cidade ou telefone conhecido; os requisitos de leads não foram alterados. Identificadores wa_id não numéricos permanecem identificadores, sem serem inventados como telefones.
 
-Uma fase futura pode adicionar whatsapp_accounts, conversations e messages por migrations próprias. Conversations deve referenciar leads e contas; mensagens devem referenciar conversations e identificadores externos únicos para idempotência. O adaptador do provedor deve ficar em uma camada server-only separada e chamar o domínio existente por operações autorizadas. Defina RLS, retenção, webhooks autenticados e deduplicação nessa fase. Não coloque regras de distribuição dentro do adaptador.
+### Modelo e segurança
+
+| Estrutura         | Integridade e finalidade                                                             | Leitura                                                    |
+| ----------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| whatsapp_accounts | WABA e phone_number_id; número único, conta inativa por padrão, sem coluna de token  | ADMIN ativo                                                |
+| contacts          | Unicidade account + wa_id; dados complementares opcionais                            | ADMIN ou agente com conversa de seu lead                   |
+| conversations     | Lead opcional; FK composta impede contato de outra conta; uma OPEN por contato/conta | ADMIN; AGENT somente com lead atualmente atribuído a ele   |
+| messages          | ID externo único; direção, tipo, texto e status; histórico preservado                | Mesma visibilidade da conversa                             |
+| webhook_events    | Unicidade provider + event_key; payload normalizado, datas e erro reservado          | Sem acesso de anon/authenticated; inspeção técnica via SQL |
+
+A view conversation_inbox usa security_invoker=true, consulta a última mensagem e preserva RLS. A transferência de um lead revoga o acesso do antigo agente em novas consultas, incluindo mensagens e view. Uma conversa compartilhando contato com outra não herda o acesso dela. Funcionários inativos, inclusive ADMIN, não têm acesso.
+
+Não há escrita direta para ADMIN/AGENT nessas tabelas. A única RPC nova, ingest_whatsapp_events(jsonb), tem EXECUTE apenas para service_role, SECURITY DEFINER e search_path vazio. A chave privada é restrita ao servidor; o serviço não recebe grants diretos nas tabelas novas. A Fase 02A não expõe cadastro de contas, conversão/vínculo de lead ou edição/exclusão de histórico. Fixtures SQL existem somente nos testes em memória.
+
+### Rotas e processamento
+
+- GET /api/webhooks/whatsapp: responde ao challenge apenas com mode=subscribe e token correto. Sem WHATSAPP_WEBHOOK_VERIFY_TOKEN retorna 503; parâmetro inválido retorna 403. O token serve apenas ao GET.
+- POST /api/webhooks/whatsapp: **retorna 503 enquanto o autenticador não estiver implementado/configurado**. Não há flag para contornar esse bloqueio. Uma implementação futura de WebhookAuthenticator recebe Uint8Array e headers antes de UTF-8/JSON/parser. Não foi inventada uma assinatura nem adicionado token da Meta.
+- O handler preparado limita o corpo a 3 MiB, exige JSON e valida todo o envelope/lote antes da RPC. São suportados texto de entrada e callbacks sent/delivered/read/failed; mídia, Flows e outros eventos ficam para etapas futuras e são recusados integralmente.
+- A RPC resolve a conta ativa por phone_number_id **e** waba_id; resolve contato e conversa internamente. IDs locais, lead e autor nunca são aceitos do payload. Campos extras do envelope são descartados pelo parser; a RPC também recusa campos normalizados desconhecidos.
+- Uma chamada processa até 100 eventos em uma transação, com bloqueios de conta em ordem fixa, constraints e unicidade. Criação de contato, conversa, mensagem e evento técnico confirma ou reverte em conjunto. Falha retorna 503 ao HTTP, permitindo retry; não grava lotes parciais nem registra erro bruto potencialmente sensível. processing_error fica reservado para uma futura fila de tentativas; nesta etapa eventos confirmados têm processed_at e erro nulo.
+- Repetir a mesma mensagem não a duplica nem cria outra conversa depois do fechamento. Reutilizar o ID com conteúdo divergente ou outra conta é recusado. last_message_at nunca recua por chegada atrasada.
+- Callbacks só alteram saídas conhecidas da conta e destinatário corretos. A precedência é PENDING → SENT → FAILED → DELIVERED → READ: evidência de entrega/leitura supera falha; estados atrasados não regridem. Timestamp não é usado para presumir ordem de entrega. Um status para saída desconhecida recusa o lote para retry futuro.
+- webhook_events guarda somente o evento normalizado por lista de campos permitidos, sem headers, credenciais ou payload bruto arbitrário. Cada mensagem usa uma chave por conta/ID; cada status inclui também estado/timestamp. A confirmação da auditoria técnica é atômica com a mensagem.
+
+O contrato sendWhatsAppText aceita um adapter server-only; sem adapter lança erro explícito. Não há fetch à Meta, sucesso simulado, resposta automática ou criação automática de lead.
+
+### Correções A01/A02 — identidade da mensagem e nome do contato
+
+A migration 008 substitui ingest_whatsapp_events(jsonb), sem editar 001–007. Antes, a comparação de todo o payload incluía display_name e o upsert priorizava o nome recebido sobre o nome salvo. Agora:
+
+- A identidade imutável inbound é composta por kind, waba_id, phone_number_id (conta resolvida no banco), external_message_id, wa_id/remetente, type, text_body e provider_timestamp. São comparados os valores normalizados recebidos pela RPC, inclusive timestamp; não há normalização adicional de texto/timestamp para deduplicação. Campo inesperado continua recusado. Status callbacks mantêm sua lógica anterior.
+- display_name é metadado opcional do contato, não identidade da mensagem. Ausência da chave, null ou nome diferente não impedem uma duplicata com identidade idêntica. Divergência real de conta, remetente, tipo, corpo ou timestamp continua recusada.
+- Uma duplicata válida conta como duplicates e não impede mensagens inéditas do mesmo lote. Não reescreve o evento original nem cria mensagem/conversa, inclusive se a conversa já estiver fechada. Todo o lote permanece transacional.
+- A ingestão, inclusive uma duplicata válida, só pode preencher contacts.display_name quando o valor atual é NULL e o nome recebido não é vazio. A migration 009 amplia a normalização das bordas para o conjunto explícito de whitespace descrito abaixo; string vazia/somente whitespace vira ausência. Um nome com conteúdo já existente nunca é substituído ou apagado, mesmo por eventos mais recentes.
+- O primeiro nome válido processado preenche a ausência; esta política não tenta escolher o nome cronologicamente mais recente. Um evento atrasado não sobrescreve um nome existente. Atualização posterior de perfil/nome será uma operação explícita distinta em etapa futura, fora desta entrega.
+- O preenchimento de nome em duplicata também participa da transação: se outra mensagem do lote falhar, ele é revertido. Payloads de webhook_events gravados antes da 008 permanecem intactos e podem ser reconhecidos como duplicatas pela regra nova.
+
+| Nome atual | Nome recebido                | Resultado  |
+| ---------- | ---------------------------- | ---------- |
+| NULL       | João                         | João       |
+| João       | NULL/ausente/vazio           | João       |
+| João       | João Silva                   | João       |
+| Nome atual | Nome antigo, evento atrasado | Nome atual |
+
+POST continua fechado com 503 sem autenticador. Nenhuma assinatura, chamada à Meta, envio ou mudança de regras da Fase 01 faz parte dessas correções.
+
+### Correção F03 — whitespace no nome do contato
+
+A migration 202610270009_whatsapp_display_name_whitespace.sql substitui somente a RPC de ingestão e corrige valores antigos sem conteúdo. As migrations 001–008 permanecem intactas. A assinatura da RPC, os grants, RLS, locks e a identidade imutável de A01/A02 não mudam.
+
+Antes de decidir qualquer preenchimento, a RPC apara as bordas do nome recebido usando o conjunto explícito Unicode White_Space: U+0009–U+000D (incluindo tabulação, LF e CR), U+0020, U+0085, U+00A0 (NBSP), U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F e U+3000. O resultado vazio é NULL. O conjunto é declarado no SQL, sem depender de locale ou de regex implícita. Caracteres internos de nomes com conteúdo são preservados.
+
+Assim, "\t\n", NBSP e misturas somente desses caracteres não preenchem o contato nem impedem o primeiro nome válido posterior. Nomes existentes com conteúdo nunca são aparados, apagados ou substituídos pela ingestão. A política também vale para duplicatas, sem alterar a identidade ou o payload técnico original; preenchimento e mensagens inéditas continuam na mesma transação.
+
+Ao aplicar 009, somente nomes antigos vazios ou compostos inteiramente pelo mesmo conjunto de whitespace são convertidos para NULL. Isso desbloqueia o preenchimento de contatos atingidos pelo F03 antes da correção. Nomes com conteúdo útil permanecem byte a byte iguais; mensagens, conversas e webhook_events não são reescritos. A atualização desses contatos usa o trigger updated_at já existente. Não há atualização geral de perfil nem nova API.
+
+### Homologação remota controlada (sem Meta)
+
+Os scripts operacionais são exclusivos do terminal/server-side. Eles não aplicam migrations nem alteram schema, grants, RLS ou o POST (que continua 503). Nenhuma homologação remota foi executada na criação destes scripts.
+
+**Permissões existentes:** a migration 006 revoga leitura/escrita direta inclusive de service_role nas tabelas WhatsApp. A secret key permite chamar a RPC, mas não preparar a conta nem consultar/limpar fixtures. Por isso, conforme a opção aprovada, os scripts usam duas conexões ao mesmo projeto: SUPABASE_SECRET_KEY para a RPC HTTP e WHATSAPP_HOMOLOGATION_DATABASE_URL administrativa para a conta fictícia, consultas e cleanup. Não há INSERT direto em contacts, conversations ou messages.
+
+Pré-requisitos: migrations 001–009 já implantadas e dependências locais instaladas, incluindo pg (devDependency para os scripts). Preencha somente no .env.local ignorado pelo Git:
+
+- NEXT_PUBLIC_SUPABASE_URL: URL HTTPS padrão do projeto, https://<project-ref>.supabase.co.
+- SUPABASE_SECRET_KEY: chave atual server-side sb_secret_...; nunca usar prefixo NEXT_PUBLIC.
+- WHATSAPP_HOMOLOGATION_DATABASE_URL: conexão PostgreSQL administrativa direta do mesmo projeto (host db.<project-ref>.supabase.co, usuário postgres), ou pooler de sessão (host *.pooler.supabase.com, usuário postgres.<project-ref>), porta 5432, database postgres. Codifique caracteres especiais da senha na URL. Não utilize pooler transacional/porta 6543.
+- SUPABASE_DATABASE_CA_PATH: caminho obrigatório para o certificado CA oficial do PostgreSQL, baixado do painel do Supabase. Exemplo: `SUPABASE_DATABASE_CA_PATH=./certs/supabase-ca.crt` em `.env.local`. Caminhos relativos são resolvidos a partir da raiz do projeto; caminhos absolutos também são aceitos. Os scripts recusam arquivo ausente, ilegível ou certificado PEM inválido com erro sanitizado. Essa variável substitui a antiga configuração opcional do CA. TLS sempre verifica o certificado; não há opção para desativar essa verificação. A `WHATSAPP_HOMOLOGATION_DATABASE_URL` pode ser informada sem `sslmode=require`: a configuração TLS vem exclusivamente de `ssl: { ca: conteúdo do arquivo, rejectUnauthorized: true }`. O driver recebe campos separados para que parâmetros da URL não substituam a configuração TLS, conforme a [documentação do node-postgres](https://node-postgres.com/features/ssl).
+
+O próprio script carrega .env.local relativo à raiz do projeto. Não é necessário passar secrets como argumento. URLs ausentes, credenciais ausentes, destino diferente e parâmetros inseguros são recusados. Não envie credenciais no chat nem registre .env.local no Git.
+
+| Operação                                    | Comando                          | Confirmação digitada    |
+| ------------------------------------------- | -------------------------------- | ----------------------- |
+| Criar/reutilizar fixture e ingerir mensagem | pnpm homologate                  | HOMOLOGAR <project-ref> |
+| Limpar somente essa fixture                 | pnpm homologate:whatsapp:cleanup | LIMPAR <project-ref>    |
+
+A URL remota e os identificadores fictícios são mostrados antes da confirmação. Não há --yes, confirmação por pipe ou escolha arbitrária de IDs/payload. A conexão só é aberta após a frase exata. Execuções simultâneas destes scripts são recusadas por advisory lock; SQL usa transações, locks e limites de tempo. Isso não substitui homologação geral de concorrência da aplicação.
+
+Fixtures fixas em scripts/lib/whatsapp-homologation-fixture.mjs:
+
+| Campo                | Valor                                                |
+| -------------------- | ---------------------------------------------------- |
+| whatsapp_accounts.id | 4d4f5449-5645-4000-8000-00000000002a                 |
+| name                 | MOTIVE HOMOLOGACAO                                   |
+| waba_id              | 00000000000000000000000000000002                     |
+| phone_number_id      | 00000000000000000000000000000003                     |
+| display_phone_number | +000000000000 (fictício; não representa número real) |
+| active               | true                                                 |
+| wa_id                | motive-homologacao-fase02a (não é telefone)          |
+| display_name         | Cliente Homologacao                                  |
+| external_message_id  | wamid.MOTIVE_HOMOLOGACAO.FASE02A.v1                  |
+| provider_timestamp   | 1793102400 (2026-10-27T12:00:00Z, fixo)              |
+| kind / type          | inbound / text                                       |
+| text_body            | Olá, gostaria de informações sobre consórcio.        |
+
+A conta só é reutilizada se todos os valores esperados coincidirem. Colisões não são adotadas ou sobrescritas. A RPC ingest_whatsapp_events recebe p_events com uma única mensagem e resolve os demais IDs. Repetir o comando conserva um contato, uma conversa OPEN com lead_id NULL e uma mensagem; retorna inserted=0/duplicates=1 na repetição. Não se usa Date.now() nem IDs aleatórios. O terminal exibe apenas o resumo validado dessas fixtures, texto e contagens; não mostra erros brutos, connection string ou secret.
+
+O cleanup verifica toda a fixture dentro da transação e exclui somente IDs exatos com critérios adicionais. Conta compartilhada com dados extras, contato alterado, mensagem divergente, conversa fechada/vinculada a lead, evento extra ou estado parcial inesperado provocam recusa antes de excluir. Não há DELETE amplo, CASCADE ou limpeza por prefixo. Uma falha posterior reverte todas as exclusões. Rodar novamente após limpeza é um no-op. É permitido limpar uma conta exata que foi criada mas ainda não recebeu mensagem.
+
+A conta é confirmada antes da chamada HTTP para não manter seu row lock enquanto a RPC aguarda. Se ocorrer falha de rede após envio, o resultado da ingestão pode ser indeterminado; a conta/fixture pode permanecer. Repetir com os mesmos IDs é seguro. Não há cleanup automático em falhas, pois a RPC pode já ter confirmado. Não modifique manualmente essa fixture; se ela divergir, os scripts recusam e exigem inspeção administrativa independente.
+
+### Interface e limites de homologação
+
+Conversas (/conversations) lista contato, telefone, última mensagem, horário, status e vínculo com lead. /conversations/[id] apresenta contato e histórico paginado, com indicação “Ainda não convertido em lead”. Não há formulário de resposta. ADMIN e AGENT usam as mesmas páginas com dados filtrados pelo banco, sem cliente privilegiado.
+
+As referências de integração são a [documentação oficial Cloud API da Meta](https://www.postman.com/meta/whatsapp-business-platform/documentation/wlk6lh4/whatsapp-cloud-api) e o [exemplo de recebimento do SDK oficial arquivado](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/receivingMessages/). Elas contextualizam o adapter; não representam homologação atual de assinatura. Antes de ativar POST, confirmar o contrato oficial vigente, implementar/testar assinatura sobre os bytes brutos e definir operação/retenção dos dados. Nunca usar o token de challenge para autenticar POST.
+
+Nenhuma migration remota é executada automaticamente. Revise as migrations pendentes até 009 e VALIDATION.md antes de autorizar aplicação no ambiente de destino. Os testes usam somente payloads fictícios, PostgreSQL PGlite local e authenticators de teste; não demonstram integração real com a Meta.
 
 ## Limites atuais
 
 - Sem integração WhatsApp, chatbot, distribuição automática, campanhas, importação ou métricas adicionais.
-- Histórico e leads têm paginação de 25 registros. Equipe/catálogo atendem à escala inicial; se ultrapassarem o limite PostgREST (1000 no config local), implemente paginação dessas consultas antes de ampliar a operação.
+- Histórico, leads, conversas e mensagens têm paginação de 25 registros. Equipe/catálogo atendem à escala inicial; se ultrapassarem o limite PostgREST (1000 no config local), implemente paginação dessas consultas antes de ampliar a operação.
 - Atualização após ações e navegação; sem Supabase Realtime nesta fase.
 - Sem deploy remoto ou conexão com um projeto Supabase nesta entrega.
+
+### Diagnóstico temporário da conexão administrativa
+
+`pnpm homologate` mostra, em falhas ao conectar PostgreSQL, somente `name`, `code`, mensagem sanitizada e categoria provável (`authentication`, `DNS`, `TLS`, `timeout`, `connection_refused` ou `unknown`). Somente textos/códigos reconhecidos são preservados; conteúdo variável, hosts, credenciais e detalhes desconhecidos são ocultados. Nenhum stack, cause ou objeto bruto do driver é impresso. O diagnóstico está habilitado apenas no entrypoint de homologação; a confirmação interativa e a verificação TLS continuam obrigatórias.
+
+### Vínculo administrativo da fixture com lead existente
+
+A operação administrativa específica de homologação pode vincular somente a conversa fictícia validada de MOTIVE HOMOLOGACAO a um lead aberto de Consórcio atualmente atribuído à Bruna ativa. Não cria lead, altera atribuição, muda RLS ou habilita integração Meta. O vínculo exige IDs previamente inspecionados, revisão exata da conversa, locks e transação; o recibo local é gravado antes do commit. A execução inicial é uma operação administrativa explicitamente autorizada, não uma funcionalidade da aplicação.
+
+O recibo de reversão fica em `.homologation/whatsapp-lead-link.json`, ignorado pelo Git e sem credenciais. Preserve-o, inclusive após falha de commit, para inspecionar resultado indeterminado. Não o edite. Para remover somente esse vínculo, execute `pnpm homologate:whatsapp:unlink` e confirme projeto/conversa no terminal. A reversão exige a mesma fixture, lead e revisão gravados no recibo; se houve alteração posterior, interrompe sem modificar dados. Ela define somente `conversations.lead_id = NULL` (e o trigger existente atualiza updated_at), sem excluir mensagem, contato, conversa ou lead. Não execute a reversão se deseja manter o vínculo para homologação.
+
+O cleanup geral continua recusando fixture vinculada. Após a reversão específica, pode-se executar o cleanup geral separadamente, se desejado.

@@ -1,4 +1,16 @@
 import type {
+  ConversationInbox,
+  WhatsAppAccount,
+  Contact,
+  Conversation,
+  Message,
+  WebhookEvent,
+  ConversationStatus,
+  MessageDirection,
+  MessageStatus,
+} from "@/domain/whatsapp";
+import type { Json } from "@/domain/types";
+import type {
   Profile,
   Employee,
   Product,
@@ -19,6 +31,11 @@ type Fn<A, R> = { Args: A; Returns: R };
 export interface Database {
   public: {
     Tables: {
+      whatsapp_accounts: Table<WhatsAppAccount>;
+      contacts: Table<Contact>;
+      conversations: Table<Conversation>;
+      messages: Table<Message>;
+      webhook_events: Table<WebhookEvent>;
       profiles: Table<Profile>;
       employees: Table<Employee>;
       products: Table<Product>;
@@ -26,8 +43,14 @@ export interface Database {
       leads: Table<Lead>;
       lead_events: Table<LeadEvent>;
     };
-    Views: Record<string, never>;
+    Views: {
+      conversation_inbox: {
+        Row: { [K in keyof ConversationInbox]: ConversationInbox[K] };
+        Relationships: [];
+      };
+    };
     Functions: {
+      ingest_whatsapp_events: Fn<{ p_events: Json }, Json>;
       create_lead: Fn<
         {
           p_name: string;
@@ -87,6 +110,9 @@ export interface Database {
       >;
     };
     Enums: {
+      conversation_status: ConversationStatus;
+      message_direction: MessageDirection;
+      message_status: MessageStatus;
       app_role: Role;
       availability: Availability;
       lead_status: LeadStatus;

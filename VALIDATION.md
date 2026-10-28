@@ -1,20 +1,318 @@
-# Verificação da Fase 01
+# Verificação — MOTIVE LEADS
 
-Data: 23/10/2026.
+## Vínculo administrativo autorizado da fixture — 28/10/2026
 
-| Verificação                          | Resultado                                                                          |
-| ------------------------------------ | ---------------------------------------------------------------------------------- |
-| ESLint (incluindo --max-warnings 0)  | Aprovado, zero erros e zero avisos                                                 |
-| TypeScript strict / tsc --noEmit     | Aprovado                                                                           |
-| Vitest                               | 39 testes aprovados em 2 arquivos                                                  |
-| Banco PGlite                         | Todas as 4 migrations aplicadas com sucesso; 32 testes SQL                         |
-| Validação de entradas                | 7 testes aprovados                                                                 |
-| next build                           | Aprovado; 12 rotas geradas, incluindo /_not-found, e proxy                         |
-| Compatibilidade de peer dependencies | Sem conflitos                                                                      |
-| Formatação Prettier                  | Aprovada                                                                           |
-| Smoke HTTP                           | /login = 200; /employees sem configuração/sessão = 307 para /login                 |
-| Inspeção visual                      | Tela inicial de configuração conferida no navegador local                          |
-| Segredo no bundle de cliente         | 16 arquivos JavaScript inspecionados; zero referências a SUPABASE_SERVICE_ROLE_KEY |
+Operação solicitada explicitamente pelo usuário: localizar MOTIVE HOMOLOGACAO e um lead de Consórcio atribuído à Bruna, vincular a conversa e preparar reversão específica. A consulta remota somente leitura encontrou uma única conversa OPEN com lead_id NULL e um único lead de Consórcio em IN_PROGRESS atribuído à Bruna Caldeira ativa. A conexão utilizou o CA configurado com verificação TLS.
+
+Após validação local, o vínculo remoto foi aplicado por conexão administrativa em transação e confirmado por releitura após COMMIT em 28/10/2026 18:08:23 UTC. Foram revalidados fixture completa, IDs, revisão, produto ativo, funcionário ativo, atribuição atual e status aberto. Houve apenas UPDATE de conversations.lead_id; updated_at foi atualizado pelo trigger existente. Lead, atribuição e histórico da Fase 01 não foram modificados. Sem migration, alteração de schema/RLS, db push, Meta ou envio.
+
+Recibo durável salvo antes do commit em .homologation/whatsapp-lead-link.json, ignorado pelo Git, com IDs/revisões e sem credenciais. Não apagar/editar o recibo enquanto o vínculo estiver ativo. Reversão disponível via pnpm homologate:whatsapp:unlink, com confirmação interativa de projeto/conversa. Ela somente remove o vínculo registrado se fixture, lead e revisão continuarem iguais. A reversão não foi executada no remoto, pois o objetivo é manter o vínculo para homologação. O cleanup geral continua bloqueando fixture vinculada. O teste local comprova que a reversão libera o cleanup sem modificar o lead.
+
+Validação isolada com ambiente fictício, sem copiar .env.local/certificado/recibo: pnpm lint, pnpm typecheck, pnpm test, pnpm build, pnpm format e pnpm format:check aprovados, código 0. **204 testes em 9 arquivos**, incluindo 8 novos casos de vínculo/reversão, alvo divergente, revisão alterada, recibo de outro projeto, falha de persistência do recibo e preservação do lead/histórico. Migrations 001–009 idênticas por SHA-256.
+
+Evidências locais: ../vinculo-homologacao/; resultado remoto contém apenas IDs operacionais, revisão e confirmação, sem secrets. Essa confirmação comprova a alteração SQL e sua releitura, não representa teste de login/UI da Bruna ou integração Meta.
+
+## TLS dos scripts PostgreSQL com CA oficial — 28/10/2026
+
+Homologação e cleanup usam o runtime compartilhado com SUPABASE_DATABASE_CA_PATH obrigatório. O caminho pode ser absoluto ou relativo à raiz do projeto. Antes de criar Client, o arquivo deve existir, ser um arquivo legível e conter certificado PEM válido. Erros de leitura/formato são sanitizados, sem conteúdo do certificado, paths, connection string, senha ou secret.
+
+O Client recebe ssl com ca igual ao conteúdo do arquivo e rejectUnauthorized true. A conexão administrativa não depende de sslmode=require: a URL é decomposta em campos e não é passada ao driver como connectionString. Os parâmetros aceitos anteriormente não substituem ssl. O diagnóstico sanitizado existente permanece intacto; não há fallback que desabilite TLS.
+
+Validação executada em cópia dos fontes com variáveis fictícias, sem copiar .env.local ou o certificado do usuário: pnpm lint, pnpm typecheck, pnpm test, pnpm build, pnpm format e pnpm format:check aprovados, código 0. **196 testes em 9 arquivos**: 10 testes novos de CA, 2 casos de configuração ausente/vazia e regressões anteriores aprovadas. Testes do certificado usam CA público incluído no Node, sem rede. Evidências em ../tls-homologacao/.
+
+Nenhuma homologação ou cleanup remoto foi executado nesta alteração. Migrations 001–009 permanecem idênticas por SHA-256; RLS, regras de negócio, banco e integração Meta não foram alterados. A conexão TLS real permanece para execução manual com o CA oficial configurado pelo operador.
+
+## Diagnóstico temporário PostgreSQL — 28/10/2026
+
+Habilitado somente em scripts/homologate-whatsapp-remote.mjs. Em falha de db.connect(), expõe apenas name/code reconhecidos, mensagem sanitizada por padrões fixos e classificação provável. Conteúdo variável e mensagens não reconhecidas são ocultados; nenhum stack, cause, detail, host, usuário, senha ou secret é repassado. O cleanup mantém o diagnóstico anterior. TLS verificado e confirmação interativa permanecem obrigatórios.
+
+Validação em cópia local dos fontes com ambiente fictício e sem .env.local: lint, typecheck, test, build, format e format:check aprovados (código 0). **184 testes em 8 arquivos**, incluindo 13 testes novos de classificação, mensagens com credenciais e campos extras maliciosos. Logs em ../diagnostico-postgresql/.
+
+pnpm homologate foi executado no projeto e retornou código 1: "Execute em terminal interativo; confirmação por pipe ou flag não é aceita." O executor de terminal interativo também falhou com erro 740 do Windows. A execução parou antes da conexão administrativa; nenhum diagnóstico de uma falha PostgreSQL real foi obtido e nenhuma operação remota foi iniciada. É necessário executar o comando em terminal interativo e confirmar o projeto para verificar a conexão real.
+
+Migrations 001–009 preservadas por comparação SHA-256 antes/depois; nenhum schema, regra de negócio, credencial ou integração Meta alterado. Nenhum db push.
+
+## Scripts de homologação remota controlada
+
+Data: 28/10/2026. Criados scripts de homologação e cleanup, sem executar contra o remoto. Migrations 006–009 e contrato da RPC foram inspecionados antes das alterações. Os grants de 006 exigem conexão administrativa adicional para preparar a conta, consultar e limpar fixtures; essa opção foi aprovada pelo usuário. A ingestão permanece exclusivamente pela RPC HTTP com secret server-side.
+
+Execução local final aprovada: **171 testes em 7 arquivos** (145 anteriores + 26 testes de segurança dos scripts).
+
+| Comando           | Resultado            |
+| ----------------- | -------------------- |
+| pnpm lint         | Aprovado, código 0   |
+| pnpm typecheck    | Aprovado, código 0   |
+| pnpm test         | Aprovado, 171 testes |
+| pnpm build        | Aprovado, código 0   |
+| pnpm format       | Aprovado, código 0   |
+| pnpm format:check | Aprovado, código 0   |
+
+Validação completa executada em cópia dos arquivos próprios, com dependências instaladas offline a partir do cache local e variáveis fictícias, sem copiar .env.local ou supabase/.temp. O script não foi executado contra Supabase remoto nem contra Meta.
+
+Testes locais cobrem: configuração ausente/insegura, projeto divergente, pooler transacional, TLS verificado, confirmação exata, recusa sem TTY, lock ocupado, liberação após erro, payload compatível com o parser, chamada somente à RPC, erros sem repassar secret, duas ingestões sem duplicar, preservação de outra conta no cleanup, conta sem ingestão, colisões, contato/mensagem/evento extra, nome/body alterados, lead vinculado e rollback de exclusões após falha forçada. Testes SQL usam migrations reais 001–009 em PGlite; HTTP é simulado. A fixture do teste de lead utiliza create_lead com ator fictício para preservar a auditoria da Fase 01.
+
+Os dois entrypoints também foram executados em diretório temporário isolado: sem .env.local recusaram configuração; com .env.local inteiramente fictício e sem terminal interativo recusaram antes de conectar. Os diagnósticos não continham as sentinelas de secret ou senha. Não há modo --yes nem bypass de confirmação.
+
+Arquivos criados:
+
+- scripts/homologate-whatsapp-remote.mjs
+- scripts/cleanup-whatsapp-homologation.mjs
+- scripts/lib/whatsapp-homologation-fixture.mjs
+- scripts/lib/whatsapp-homologation-db.mjs
+- scripts/lib/whatsapp-homologation-runtime.mjs
+- tests/whatsapp-homologation.test.mjs
+
+Arquivos alterados: package.json (comandos e pg 8.23.1 como devDependency), pnpm-lock.yaml, vitest.config.ts (inclui testes .mjs), .env.example (somente variáveis opcionais vazias), README.md, AGENTS.md e VALIDATION.md. Nenhum arquivo de src/ foi alterado. Migrations 001–009 permanecem idênticas, comprovadas por hashes; nenhuma nova migration/schema/grant foi criado ou alterado.
+
+Comandos de operação futura: pnpm homologate e pnpm homologate:whatsapp:cleanup. Consulte os pré-requisitos e valores determinísticos no README. A conexão PostgreSQL administrativa deve apontar ao mesmo projeto da API; nenhuma senha real foi adicionada ao Git. O POST permanece fechado/503 e Meta desconectada. Não há access token Meta, envio ou bot.
+
+Logs e evidências: ../homologacao-remota-scripts/. O sucesso local não comprova conectividade, certificados, grants efetivos, Auth/PostgREST ou concorrência no Supabase real; essa homologação só ocorrerá quando o operador configurar o ambiente e confirmar os comandos.
+
+## Correção exclusiva de F03/P3 — migration 009
+
+Data: 28/10/2026. Escopo: normalização explícita de display_name antes de preencher contatos. Migrations 001–008 preservadas. Nenhuma alteração de RLS, autorização, identidade da mensagem, POST fechado/503 ou regras da Fase 01. Nenhum db push, conexão Meta ou credencial nova.
+
+A 009 usa o conjunto Unicode White_Space enumerado no README e no SQL. Entradas somente com esses caracteres viram NULL; nomes válidos têm apenas as bordas aparadas. Nomes existentes com conteúdo e caracteres internos são preservados. Valores históricos vazios/whitespace-only são convertidos para NULL, sem reescrever mensagem, conversa ou evento técnico. Grants e assinatura da RPC permanecem iguais; não foi necessário alterar database.types.ts.
+
+Foram adicionados 17 testes permanentes em tests/whatsapp-database.test.ts: oito casos de whitespace com preenchimento válido posterior; três duplicatas com enriquecimento e conversa fechada; três casos de preservação de nome existente; bordas versus caracteres internos/payload; rollback no lote misto; upgrade 008→009 com correção restrita dos valores antigos e preservação do histórico. A01/A02 e Fase 01 continuam na suíte.
+
+Execução final aprovada: **145 testes em 6 arquivos**, sendo 128 anteriores e 17 novos. Os 63 testes SQL WhatsApp incluem A01/A02, F03, upgrade 007→008 e upgrade 008→009; os 54 testes da Fase 01 continuam aprovados.
+
+| Comando           | Resultado            |
+| ----------------- | -------------------- |
+| pnpm lint         | Aprovado, código 0   |
+| pnpm typecheck    | Aprovado, código 0   |
+| pnpm test         | Aprovado, 145 testes |
+| pnpm build        | Aprovado, código 0   |
+| pnpm format       | Aprovado, código 0   |
+| pnpm format:check | Aprovado, código 0   |
+
+As validações de aplicação foram executadas numa cópia fiel dos arquivos próprios, com dependências locais, variáveis fictícias e sem .env.local ou supabase/.temp. A formatação final também foi executada no projeto. Nenhuma credencial real foi lida/usada e nenhum serviço remoto foi acessado.
+
+A reprodução independente do F03 confirma que string vazia, espaços, "\t\n" e NBSP resultam em NULL e depois em "Nome válido". Os cenários originais A01/A02 continuam aprovados: duplicata com nome NULL junto de inédita resulta em duplicates=1/inserted=1; evento atrasado preserva "Nome atual". O upgrade 008→009 converte só nomes antigos sem conteúdo para NULL, preserva integralmente contato com nome útil, mensagens, conversas e eventos, e permite enriquecimento por duplicata.
+
+Hashes SHA-256 confirmam migrations 001–008 idênticas à auditoria final. A comparação estrutural da RPC confirma que os demais trechos da 008 permanecem iguais, após desconsiderar somente a normalização. Não foram alterados RLS, grants, autenticação, regras de leads ou callbacks.
+
+Arquivos desta correção: supabase/migrations/202610270009_whatsapp_display_name_whitespace.sql (novo), tests/whatsapp-database.test.ts, README.md, AGENTS.md e VALIDATION.md. Logs e evidências locais: ../correcao-f03/. Nenhuma migration remota foi aplicada; nenhum db push, conexão Meta ou credencial nova.
+
+PGlite não comprova concorrência entre conexões independentes nem homologação Auth/PostgREST. As pendências de homologação real da auditoria continuam abertas; esta correção não ativa o POST.
+
+## Correção exclusiva de A01/A02 — migration 008
+
+Data: 27/10/2026. Escopo: apenas idempotência inbound e preenchimento de display_name. As migrations 001–007 permanecem intactas. Não foram alteradas regras da Fase 01, RLS, interface, autenticação de webhook ou envio. POST real continua fechado com 503 sem autenticador. Nenhuma credencial Meta foi adicionada e nenhuma migration remota foi aplicada.
+
+### Migration e regras finais
+
+202610270008_whatsapp_ingestion_robustness.sql substitui public.ingest_whatsapp_events(jsonb) com CREATE OR REPLACE, mantendo assinatura, retorno, SECURITY DEFINER, search_path vazio e EXECUTE somente para service_role. Não adiciona tabela/coluna nem modifica registros existentes ao aplicar.
+
+Antes, todo o payload do evento participava da comparação, inclusive display_name; o upsert substituía o nome salvo pelo recebido. Agora a identidade inbound contém kind, waba_id, phone_number_id/conta resolvida, external_message_id, wa_id, type, text_body e provider_timestamp. Todos esses campos continuam imutáveis e comparados como recebidos pela RPC; campo inesperado continua recusado. O único metadado excluído da comparação é display_name. Callbacks de status não mudam.
+
+Nome ausente, null ou diferente permite duplicata válida com identidade idêntica, inclusive junto de mensagem inédita. Duplicata não reescreve mensagem/evento técnico nem cria conversa, mesmo fechada. Payloads históricos da 007 são comparados sem display_name, preservando seu conteúdo original.
+
+A ingestão só preenche contacts.display_name quando o valor atual é NULL e o recebido, após btrim, é não vazio. Essa regra vale para mensagens inéditas e duplicatas válidas. Nome existente nunca é substituído/apagado, mesmo por evento posterior. String vazia/somente espaços recebida é tratada como ausência; valores vazios já armazenados não são convertidos ou sobrescritos automaticamente. O primeiro nome válido processado prevalece. Atualização posterior de perfil será operação explícita distinta futura, fora desta correção.
+
+Toda alteração, inclusive preenchimento de nome por duplicata, participa da transação do lote. Divergência real ou falha posterior desfaz as mensagens inéditas e esse preenchimento. RLS, autorização e histórico da Fase 01 continuam preservados.
+
+### Regressões permanentes
+
+Foram adicionados 23 cenários em tests/whatsapp-database.test.ts:
+
+- Nome diferente, null e chave ausente são aceitos em duplicata, junto de outra mensagem inédita; preservam mensagem e evento original.
+- Corpo, remetente, tipo, timestamp e conta divergentes continuam recusados sem efeitos.
+- Nome NULL, vazio recebido e somente espaços permitem primeiro preenchimento válido.
+- Nome existente não é substituído por nome diferente, null, vazio ou espaços.
+- Evento atrasado não regride nome, tanto em chamadas separadas quanto no lote reproduzido pela auditoria.
+- Reentrega com metadado diferente/ausente não cria conversa após fechamento; duplicata pode preencher nome NULL sem reabrir conversa nem reescrever evento.
+- Falha no lote misto desfaz mensagem inédita e preenchimento de nome; retry válido funciona.
+- HTTP sem contacts normaliza nome ausente e resulta em duplicata válida.
+- Upgrade real 001–007 → 008, com mensagem previamente persistida pela 007, aceita metadado diferente e preserva auditoria.
+
+Os testes existentes de atomicidade, RLS, POST fechado/503 e Fase 01 permanecem. Execução final: 128 testes aprovados em 6 arquivos (105 anteriores + 23 novos).
+
+### Reexecução dos cenários da auditoria
+
+O script original foi executado novamente contra as oito migrations em PGlite local. A cópia de execução ficou em work; relatório e evidências originais da auditoria foram preservados.
+
+| Cenário                                                    | Após 008                                            |
+| ---------------------------------------------------------- | --------------------------------------------------- |
+| Repetição exata                                            | duplicates=1, inserted=0                            |
+| Mesmo ID/conteúdo, nome ausente e segunda mensagem inédita | duplicates=1, inserted=1; sem erro                  |
+| Evento antigo após mensagem atual                          | display_name=Nome atual; last_message_at preservado |
+| Lote a-new/z-old da auditoria                              | display_name=Nome atual                             |
+| Lote com conta desconhecida                                | Falha esperada, 0 mensagens e 0 eventos persistidos |
+
+Evidência: ../correcao-a01-a02/evidencias-reproducao.json. Não foram usados tokens, contas reais ou conexão remota.
+
+### Validação final
+
+Execução final sequencial, todos com código 0:
+
+| Comando                       | Resultado                                                     |
+| ----------------------------- | ------------------------------------------------------------- |
+| pnpm lint                     | Aprovado                                                      |
+| pnpm typecheck                | Aprovado                                                      |
+| pnpm test                     | 128 testes aprovados em 6 arquivos: 105 anteriores + 23 novos |
+| pnpm build                    | Aprovado; 15 rotas e proxy                                    |
+| pnpm format                   | Aprovado                                                      |
+| pnpm format:check (adicional) | Aprovado                                                      |
+
+As sete migrations anteriores foram comparadas byte a byte ao estado inicial: nenhuma alteração. Código de src/, testes da Fase 01 e .env.example também foram preservados. O build carregou o .env.local existente sem editá-lo; não foi aplicado SQL remotamente. Nenhuma credencial Meta foi adicionada. A comparação da função 007/008 confirmou mudanças apenas no metadado opcional, comparação de duplicidade e preenchimento de nome; locks, status callbacks, grants e demais operações foram mantidos.
+
+Os cenários originais foram reexecutados pelo mesmo script de auditoria, alterando somente o destino do arquivo de evidências e carregando a migration 008 adicional. Os resultados históricos da auditoria permanecem disponíveis para comparação. A autenticação real, envio, chatbot e integração Meta continuam fora de escopo.
+
+### Arquivos do projeto alterados nesta correção
+
+- supabase/migrations/202610270008_whatsapp_ingestion_robustness.sql (novo)
+- tests/whatsapp-database.test.ts
+- README.md
+- AGENTS.md
+- VALIDATION.md
+
+## Histórico: entrega inicial da Fase 02A
+
+### Registro anterior — 27/10/2026
+
+A homologação remota da Fase 01 foi informada pelo usuário. Esta etapa executa somente verificações locais; nenhuma conexão remota, db push, registro de número ou chamada à Meta foi realizada. Migrations 001–005 foram comparadas byte a byte com o início desta tarefa e permanecem intactas.
+
+### Entrega para revisão antes da aplicação remota
+
+- 202610270006_whatsapp_foundation.sql: cinco tabelas (whatsapp_accounts, contacts, conversations, messages, webhook_events), enums, constraints, índices, RLS, timestamps e view conversation_inbox com security_invoker.
+- 202610270007_whatsapp_ingestion.sql: ingest_whatsapp_events(jsonb), RPC exclusiva de service_role, lote transacional, idempotência, locks e status monotônicos. Não altera funções/regras de distribuição da Fase 01.
+- Modelo: conta → contato → conversa → mensagens; conversa pode referenciar lead, mas ingestão nunca cria lead. Unicidade conta/wa_id, uma conversa OPEN por contato/conta, ID externo de mensagem único e event_key por provider. Sem coluna ou seed de token.
+- RLS: ADMIN ativo lê contas/contatos/conversas/mensagens. AGENT ativo lê contato/conversa/mensagens apenas através de lead atualmente atribuído a ele. Sem lead: apenas ADMIN. Transferência revoga acesso do antigo agente. webhook_events e escrita direta das novas tabelas são vedados aos usuários.
+- Rotas: GET/POST /api/webhooks/whatsapp; páginas /conversations e /conversations/[id]. UI somente leitura, com estado vazio, paginação, erro/carregamento herdados do painel e vínculo ou ausência de lead explícito.
+
+### Testes adicionados
+
+- tests/whatsapp-database.test.ts: 23 cenários SQL/HTTP→SQL. Aplicam todas as sete migrations no PGlite. Cobrem unicidade de contato, idempotência de mensagem/evento, separação de contas, conversas sem lead, RLS ADMIN/AGENT/inativo/anônimo, perda de acesso após transferência, bloqueio de RPC/escrita, status fora de ordem, conta desconhecida/inativa, payload malformado/injetado, rollback de lote e retry após falha forçada.
+- tests/whatsapp-webhook.test.ts: 24 cenários de challenge, POST real fechado por padrão, preservação exata dos bytes, autenticação antes de JSON, rejeição/falha do autenticador, payload/tamanho inválido, campos permitidos, callbacks, envio não configurado e proteção do painel pelo proxy.
+- tests/whatsapp-ui.test.ts: 4 cenários de renderização SSR com fixtures de teste: lista, vazio, detalhe, vínculo com lead, escape de conteúdo externo e ausência de formulário de envio.
+- tests/fixtures/whatsapp.ts: dados exclusivamente fictícios; nenhum token ou número registrado.
+- Os 54 testes da Fase 01 permanecem sem alteração. Total confirmado: 105 testes em 6 arquivos.
+
+### Resultado dos comandos
+
+Execução final sequencial concluída com código 0 em todos os comandos:
+
+| Comando           | Resultado                                                     |
+| ----------------- | ------------------------------------------------------------- |
+| pnpm lint         | Aprovado                                                      |
+| pnpm typecheck    | Aprovado                                                      |
+| pnpm test         | 105 testes aprovados em 6 arquivos (54 existentes + 51 novos) |
+| pnpm build        | Aprovado; 15 rotas, incluindo as 3 novas, e proxy             |
+| pnpm format:check | Aprovado                                                      |
+
+pnpm format foi executado antes dos checks. Foram inspecionados 17 arquivos JavaScript em .next/static: nenhuma referência às variáveis privadas Supabase/WhatsApp e nenhuma chave secreta identificada. A busca em arquivos próprios do projeto não encontrou credenciais reais nem a variável Supabase antiga. Apenas .env.example é versionado, com placeholders e verify token vazio. Nenhuma secret key foi incluída no Git.
+
+O build carregou o .env.local já existente sem alterá-lo ou imprimir seus valores. As rotas do painel/webhook são dinâmicas; nenhum cliente foi usado para acessar o banco remoto nesta execução. next-env.d.ts foi regenerado pelo Next para os tipos do build. As demais alterações anteriores do usuário foram preservadas.
+
+### Limites e decisões verificáveis
+
+O POST público retorna 503 sem autenticador e não grava dados, mesmo que o token do GET seja definido. A infraestrutura de processamento foi testada com authenticators locais de teste; não se declara homologação de assinatura ou integração com a Meta. O parser suporta texto de entrada e callbacks de status; outros formatos são recusados integralmente. O verify token documentado permanece vazio no exemplo, sem access token da Meta.
+
+A RPC confirma evento técnico e mensagem na mesma transação. Se qualquer evento falha, o lote inteiro reverte, inclusive a auditoria técnica, permitindo retry sem dados parciais. processing_error é reservado para futura infraestrutura de tentativas; erros brutos não são persistidos/logados nesta fase. Estado de entrega usa precedência PENDING < SENT < FAILED < DELIVERED < READ, não ordem de chegada. Nenhuma saída real é criada ou enviada pela aplicação.
+
+A UI usa o cliente SSR do usuário; somente processamento autenticado futuro usa o cliente administrativo. As verificações de RLS ocorrem no PostgreSQL embarcado, não em uma conta Supabase real. Renderização SSR não equivale a inspeção visual autenticada no navegador. Locks e unicidade foram exercitados em transações locais, não com concorrência de múltiplas conexões reais.
+
+Diretório local supabase/.temp foi excluído de Git/Prettier para preservar o vínculo de CLI do usuário fora do código versionado. Nenhum arquivo de credencial local foi modificado.
+
+### Arquivos desta etapa
+
+- next-env.d.ts (gerado automaticamente pelo build)
+- .env.example
+- .gitignore
+- .prettierignore
+- AGENTS.md
+- README.md
+- VALIDATION.md
+- src/app/(panel)/conversations/[id]/page.tsx
+- src/app/(panel)/conversations/page.tsx
+- src/app/(panel)/layout.tsx
+- src/app/api/webhooks/whatsapp/route.ts
+- src/components/navigation.tsx
+- src/domain/whatsapp.ts
+- src/lib/database.types.ts
+- src/lib/whatsapp/contracts.ts
+- src/lib/whatsapp/parsing.ts
+- src/lib/whatsapp/processing.ts
+- src/lib/whatsapp/queries.ts
+- src/lib/whatsapp/sending.ts
+- src/lib/whatsapp/webhook.ts
+- src/proxy.ts
+- supabase/migrations/202610270006_whatsapp_foundation.sql
+- supabase/migrations/202610270007_whatsapp_ingestion.sql
+- tests/fixtures/whatsapp.ts
+- tests/whatsapp-database.test.ts
+- tests/whatsapp-ui.test.ts
+- tests/whatsapp-webhook.test.ts
+- vitest.config.ts
+
+## Histórico da Fase 01
+
+Validação inicial: 23/10/2026. Última revalidação: 26/10/2026.
+
+| Verificação                                    | Resultado                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| ESLint (incluindo --max-warnings 0)            | Aprovado, zero erros e zero avisos                                                                       |
+| TypeScript strict / tsc --noEmit               | Aprovado                                                                                                 |
+| Vitest                                         | 54 testes aprovados em 3 arquivos                                                                        |
+| Banco PGlite                                   | Todas as 5 migrations aplicadas com sucesso; 44 testes SQL                                               |
+| Validação de entradas                          | 7 testes aprovados                                                                                       |
+| next build                                     | Aprovado; 12 rotas geradas, incluindo /_not-found, e proxy                                               |
+| Compatibilidade de peer dependencies           | Sem conflitos                                                                                            |
+| Formatação Prettier                            | Aprovada                                                                                                 |
+| Smoke HTTP (entrega inicial)                   | /login = 200; /employees sem configuração/sessão = 307 para /login                                       |
+| Inspeção visual (entrega inicial)              | Tela inicial de configuração conferida no navegador local                                                |
+| Segredo no bundle de cliente (entrega inicial) | 16 arquivos JavaScript inspecionados; zero referências à variável administrativa vigente naquela entrega |
+
+## Atualização das API keys em 26/10/2026
+
+O cliente administrativo e o schema de validação do bootstrap agora exigem SUPABASE_SECRET_KEY. O cliente administrativo mantém import "server-only"; seu uso na Server Action continua protegido por requireAdmin(). Clientes SSR e proxy continuam usando NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Não há fallback para a variável antiga nem secret key com prefixo NEXT_PUBLIC.
+
+Verificações desta atualização:
+
+- pnpm lint, pnpm typecheck, pnpm test, pnpm build e pnpm format concluíram com código 0. Os 54 testes existentes passaram em 3 arquivos.
+- Bootstrap executado sem configuração: recusado com código 1 e mensagem que identifica SUPABASE_SECRET_KEY, antes de qualquer acesso ao banco.
+- Busca em todos os 77 arquivos próprios do projeto: nenhuma referência ao nome antigo da variável. Dependências, artefatos gerados e histórico Git não fazem parte dessa contagem.
+- Os 17 arquivos JavaScript de .next/static foram inspecionados após o build: nenhuma referência à variável privada atual ou anterior, nem chave secreta identificada.
+- Somente .env.example é versionado; seus valores são placeholders. Nenhuma secret key real foi fornecida, adicionada ao código ou incluída no Git.
+- Nenhuma mudança nas regras de negócio, RLS, migrations, dependências ou testes. Os papéis SQL service_role permanecem válidos e foram preservados. Nenhum banco remoto foi conectado.
+
+Arquivos alterados nesta atualização: .env.example, src/lib/supabase/admin.ts, scripts/bootstrap-admin.mjs, README.md, AGENTS.md e VALIDATION.md.
+
+## Reauditoria em 26/10/2026
+
+Resultado da nova execução sequencial: pnpm lint, pnpm typecheck, pnpm test, pnpm build e pnpm format concluíram com código 0. Os 54 testes passaram novamente (44 SQL, 3 de seleção e 7 de validação de entradas).
+
+A solicitação foi conferida novamente contra o código atual. O ajuste anterior já atende ao escopo; não foi necessária nova mudança de lógica ou migration duplicada. A comparação da função com a versão anterior confirmou que apenas a condição de disponibilidade e sua mensagem de erro foram alteradas; autorização, locks, especialidade, produto, atualização e auditoria foram preservados.
+
+A confirmação da interface foi revisada no código nesta reauditoria. O teste manual do navegador descrito abaixo pertence à auditoria anterior. Nenhum banco remoto foi conectado.
+
+Arquivos do ajuste existente:
+
+- src/app/(panel)/leads/[id]/page.tsx
+- src/components/assignment-form.tsx (novo)
+- src/domain/assignment.ts (novo)
+- supabase/migrations/202610230005_assignment_availability_advisory.sql (nova no ajuste anterior)
+- tests/database.test.ts
+- tests/assignment.test.ts (novo)
+- README.md
+- AGENTS.md
+- VALIDATION.md
+
+Nesta reauditoria, somente este relatório recebeu atualização de conteúdo; a execução de pnpm format pode normalizar a formatação.
+
+## Auditoria da disponibilidade na distribuição
+
+Escopo: atribuição e transferência manuais pelo ADMIN. A migration 202610230005_assignment_availability_advisory.sql remove apenas a exigência de AVAILABLE da RPC. Inatividade (active=false), falta de especialidade, produto inativo, lead encerrado e autorização continuam bloqueando as operações. RLS e grants não foram alterados.
+
+Foram atualizados os cenários anteriores que recusavam BUSY/AWAY/OFFLINE. Agora há sucesso para os quatro estados, em atribuição e transferência, e falhas para inativo, incompatível, produto inativo e AGENT. O histórico é validado nas operações bem-sucedidas; uma falha forçada na inserção do evento confirma rollback integral do lead. A proibição de execução anônima também foi verificada após substituir a RPC.
+
+Três testes de seleção verificam prioridade de AVAILABLE, inclusão dos demais estados e exclusão de destinos inválidos. As demais regressões foram preservadas.
+
+Teste manual local do componente real, com ação substituída apenas no harness temporário de teste e dados fictícios: AVAILABLE sem alerta; BUSY/AWAY/OFFLINE com alerta; envio sem confirmação bloqueado; atribuição e transferência confirmadas; troca de destinatário limpa confirmação; reset do formulário limpa seleção. Esse teste não acessa banco remoto nem modifica o fluxo de autenticação da aplicação.
+
+Comandos desta revisão: pnpm lint, pnpm typecheck, pnpm test, pnpm build e pnpm format. Os cinco comandos concluíram com código 0 na execução final sequencial.
 
 ## O que foi exercitado
 

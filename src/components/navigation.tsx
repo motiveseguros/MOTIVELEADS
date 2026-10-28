@@ -7,12 +7,14 @@ import {
   ListFilter,
   Users,
   History,
+  MessageSquare,
 } from "lucide-react";
 import type { Role } from "@/domain/types";
 const items = [
   { href: "/", title: "Dashboard", icon: LayoutDashboard },
   { href: "/leads/new", title: "Novos Leads", icon: Inbox },
   { href: "/leads", title: "Todos os Leads", icon: ListFilter },
+  { href: "/conversations", title: "Conversas", icon: MessageSquare },
   { href: "/employees", title: "Funcionários", icon: Users, admin: true },
   { href: "/history", title: "Histórico", icon: History },
 ];

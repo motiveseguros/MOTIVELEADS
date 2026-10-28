@@ -11,7 +11,9 @@ import { ActionForm } from "@/components/action-form";
 import { SelectField } from "@/components/fields";
 import { HistoryList } from "@/components/history-list";
 import { Pagination } from "@/components/pagination";
-import { assignLead, transitionLead } from "@/app/actions/leads";
+import { transitionLead } from "@/app/actions/leads";
+import { AssignmentForm } from "@/components/assignment-form";
+import { assignmentCandidates } from "@/domain/assignment";
 export default async function LeadDetail({
   params,
   searchParams,
@@ -34,14 +36,11 @@ export default async function LeadDetail({
   const [products, { employees, specialties }, { events, total }] =
     await Promise.all([catalog(), team(), history(page, id)]);
   const owner = employees.find((e) => e.id === lead.assigned_employee_id);
-  const compatible = employees.filter(
-    (e) =>
-      e.active &&
-      e.availability === "AVAILABLE" &&
-      e.id !== lead.assigned_employee_id &&
-      specialties.some(
-        (s) => s.employee_id === e.id && s.product_id === lead.product_id,
-      ),
+  const compatible = assignmentCandidates(
+    employees,
+    specialties,
+    lead.product_id,
+    lead.assigned_employee_id,
   );
   const closed = lead.status === "CLOSED_WON" || lead.status === "CLOSED_LOST";
   const product = products.find((p) => p.id === lead.product_id);
@@ -119,44 +118,21 @@ export default async function LeadDetail({
               </div>
               <div className="panel-body">
                 {compatible.length && product?.active ? (
-                  <ActionForm
-                    action={assignLead}
-                    label={owner ? "Transferir lead" : "Atribuir lead"}
-                  >
-                    <input type="hidden" name="lead_id" value={id} />
-                    <input
-                      type="hidden"
-                      name="expected_employee_id"
-                      value={lead.assigned_employee_id ?? ""}
-                    />
-                    <SelectField
-                      name="employee_id"
-                      label="Funcionários compatíveis"
-                      required
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        Selecione o responsável
-                      </option>
-                      {compatible.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                        </option>
-                      ))}
-                    </SelectField>
-                    <p className="muted text-xs leading-relaxed">
-                      Apenas funcionários ativos, disponíveis e com a
-                      especialidade deste produto.
-                      {owner
-                        ? " A transferência reinicia o status como Distribuído."
-                        : ""}
-                    </p>
-                  </ActionForm>
+                  <AssignmentForm
+                    key={lead.assigned_employee_id ?? "unassigned"}
+                    leadId={id}
+                    currentEmployeeId={lead.assigned_employee_id}
+                    employees={compatible.map(({ id, name, availability }) => ({
+                      id,
+                      name,
+                      availability,
+                    }))}
+                  />
                 ) : (
                   <p className="muted text-xs leading-relaxed">
                     {!product?.active
                       ? "Este produto está inativo. Ative-o antes de atribuir."
-                      : "Nenhum funcionário compatível está disponível. Revise disponibilidade e especialidades da equipe."}
+                      : "Nenhum funcionário ativo e compatível para este produto. Revise o cadastro e as especialidades da equipe."}
                   </p>
                 )}
               </div>

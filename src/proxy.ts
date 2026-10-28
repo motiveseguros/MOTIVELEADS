@@ -2,6 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isConfigured, publicConfig } from "@/lib/supabase/config";
 export async function proxy(request: NextRequest) {
+  // Webhooks authenticate at their own raw-body boundary, without a user session.
+  if (request.nextUrl.pathname === "/api/webhooks/whatsapp")
+    return NextResponse.next();
   if (!isConfigured()) return NextResponse.next();
   let response = NextResponse.next({ request });
   const { url, key } = publicConfig();

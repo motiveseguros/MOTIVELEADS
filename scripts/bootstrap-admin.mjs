@@ -3,7 +3,7 @@ import { z } from "zod";
 const config = z
   .object({
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
-    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+    SUPABASE_SECRET_KEY: z.string().min(1),
     BOOTSTRAP_EMAIL: z.email(),
     BOOTSTRAP_NAME: z.string().min(2).max(120),
     BOOTSTRAP_PASSWORD: z.string().min(12).max(128),
@@ -11,16 +11,14 @@ const config = z
   .safeParse(process.env);
 if (!config.success) {
   console.error(
-    "Configure URL, service role e BOOTSTRAP_EMAIL/NAME/PASSWORD (senha com 12+ caracteres).",
+    "Configure URL, SUPABASE_SECRET_KEY e BOOTSTRAP_EMAIL/NAME/PASSWORD (senha com 12+ caracteres).",
   );
   process.exit(1);
 }
 const env = config.data;
-const db = createClient(
-  env.NEXT_PUBLIC_SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
+const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 const existing = await db
   .from("profiles")
   .select("id", { count: "exact", head: true })

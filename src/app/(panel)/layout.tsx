@@ -21,7 +21,7 @@ export default async function PanelLayout({
         <div className="sidebar-footer">
           Motive Corretora
           <br />
-          <span>Operação interna · Fase 01</span>
+          <span>Operação interna · Fase 02A</span>
         </div>
       </aside>
       <div className="shell">
