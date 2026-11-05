@@ -1,4 +1,4 @@
-# MOTIVE LEADS — Fase 02A
+# MOTIVE LEADS — Fase 02C1: autenticação do webhook
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
@@ -6,9 +6,49 @@ Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, compon
 
 ## Estado da entrega
 
-A Fase 01 foi homologada no Supabase remoto pelo usuário, conforme informado em 27/10/2026. A infraestrutura da Fase 02A foi preparada localmente; as migrations novas ainda dependem de revisão e aplicação pelo operador. A execução conectada exige um projeto Supabase e as variáveis abaixo. Nenhuma credencial foi incluída. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
+As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 implementa localmente a autenticação HMAC dos POSTs; ainda não foi publicada e não conecta a Meta, número oficial ou recebimento real. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
+
+## Staging público — Vercel
+
+URL: https://motive-leads-staging.vercel.app
+
+Projeto `motive-leads-staging`, equipe MOTIVE (`motive20`), conectado ao repositório privado `motiveseguros/MOTIVELEADS`. O primeiro deploy foi criado a partir de `251d478`, branch `main`, usando o preset Next.js e comandos padrão. A branch `main` é a branch de produção da Vercel neste projeto de staging; novos pushes podem disparar deployments automaticamente.
+
+Somente estas variáveis foram cadastradas no ambiente **Production** do projeto de staging:
+
+| Variável                               | Tipo Vercel |
+| -------------------------------------- | ----------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Config      |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Config      |
+| `SUPABASE_SECRET_KEY`                  | Secret      |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN`        | Secret      |
+
+O verify token é um segredo próprio para o GET de challenge, gerado com 32 bytes aleatórios e mantido no `.env.local` ignorado pelo Git e como Secret na Vercel. Não é access token da Meta. O endpoint futuro é `https://motive-leads-staging.vercel.app/api/webhooks/whatsapp`; ainda não foi cadastrado na Meta.
+
+A secret permanece server-side e não pode ter prefixo `NEXT_PUBLIC_`. `WHATSAPP_HOMOLOGATION_DATABASE_URL` e `SUPABASE_DATABASE_CA_PATH` ficam exclusivamente no ambiente administrativo local. Não executar `vercel env pull` sobre `.env.local`, pois pode sobrescrever a configuração local e não recupera Secrets de Production. Preview e Development não receberam credenciais nesta configuração.
+
+A URL é pública, mas o painel exige autenticação Supabase. O staging publicado da Fase 02B mantém POST `/api/webhooks/whatsapp` fechado com 503; o código local da Fase 02C1 passa a exigir HMAC antes de processar POSTs. GET de challenge não habilita POST. O deploy não aplica migrations nem executa scripts de homologação. Não houve alteração de schema, RLS ou integração Meta. Consulte VALIDATION.md para verificações e limites.
+
+## Fase 02C1 — autenticação HMAC do POST
+
+`src/lib/whatsapp/signature.ts` é server-only e usa `createHmac` e `timingSafeEqual` do [crypto nativo do Node](https://nodejs.org/api/crypto.html#cryptotimingsafeequala-b), sem dependências novas. A rota Node.js lê WHATSAPP_APP_SECRET no momento da requisição. O segredo é a chave textual do HMAC, sem decodificar como hex ou remover espaços. Ausência, vazio ou somente whitespace falham fechados em qualquer ambiente.
+
+O header X-Hub-Signature-256 deve ter exatamente `sha256=` seguido de 64 caracteres hexadecimais. A validação de formato/tamanho ocorre antes de converter o digest para 32 bytes; a comparação é timing-safe entre buffers do mesmo tamanho. Headers duplicados combinados são recusados. O corpo é lido uma vez como stream de bytes, limitado a 3 MiB por Content-Length e contagem real, e concatenado sem transformação. Só após assinatura válida ocorre decodificação UTF-8, JSON.parse, parser de domínio e RPC de ingestão existente. Mudança de whitespace, representação Unicode ou de um byte exige nova assinatura.
+
+Política HTTP:
+
+- 403 para assinatura ausente, malformada ou incorreta; não chama parser, cliente administrativo nem RPC.
+- 503 para App Secret ausente/vazio ou falha interna de autenticação; nunca há fallback para o verify token ou access token.
+- Guardas de transporte existentes precedem autenticação: Content-Type inválido retorna 415, corpo acima de 3 MiB retorna 413 e erro de leitura retorna 400, sempre sem persistência.
+- Payload autenticado com JSON/UTF-8/formato inválido retorna 400 sanitizado; falha na persistência retorna 503 sanitizado.
+- Payload autenticado e suportado usa a RPC atômica existente e retorna 200 com inserted/duplicates/statuses.
+- GET mantém challenge/200 e token incorreto/403; sem verify token configurado retorna 503.
+
+Não foram adicionados logs de requisição. Nunca registrar segredo, assinatura, digest, body, dados pessoais ou erros brutos. O verify token do GET e o App Secret do POST são controles distintos.
+
+Preparação de staging: cadastrar WHATSAPP_APP_SECRET como **Secret**, somente no ambiente Production do projeto separado motive-leads-staging, antes de um futuro deploy da Fase 02C1. Não usar NEXT_PUBLIC nem publicar o valor no repositório. Esta implementação não cadastra a variável remota, faz push/deploy, configura Meta, registra número ou implementa envio. O staging da Fase 02B permanece inalterado.
 
 ## Setup
 
@@ -23,12 +63,13 @@ Requisitos: Node.js 22.12+ (validado com Node 24), pnpm, Git e Supabase CLI. Par
 
 ### Variáveis de ambiente
 
-| Variável                             | Onde é usada                | Valor                                          |
-| ------------------------------------ | --------------------------- | ---------------------------------------------- |
-| NEXT_PUBLIC_SUPABASE_URL             | SSR/proxy                   | URL do projeto Supabase                        |
-| NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | SSR/proxy; pode ser pública | Publishable key do projeto                     |
-| SUPABASE_SECRET_KEY                  | Exclusivamente no servidor  | Secret key do projeto para provisionar acessos |
-| WHATSAPP_WEBHOOK_VERIFY_TOKEN        | Exclusivamente no servidor  | Futuro challenge GET; deixar vazio na Fase 02A |
+| Variável                             | Onde é usada                | Valor                                                    |
+| ------------------------------------ | --------------------------- | -------------------------------------------------------- |
+| NEXT_PUBLIC_SUPABASE_URL             | SSR/proxy                   | URL do projeto Supabase                                  |
+| NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | SSR/proxy; pode ser pública | Publishable key do projeto                               |
+| SUPABASE_SECRET_KEY                  | Exclusivamente no servidor  | Secret key do projeto para provisionar acessos           |
+| WHATSAPP_WEBHOOK_VERIFY_TOKEN        | Exclusivamente no servidor  | Segredo próprio para challenge GET                       |
+| WHATSAPP_APP_SECRET                  | Exclusivamente no servidor  | App Secret para autenticação HMAC do POST; Vercel Secret |
 
 Somente as duas primeiras podem ser públicas. O módulo administrativo importa server-only e usa SUPABASE_SECRET_KEY exclusivamente no servidor. Nunca prefixe essa chave com NEXT_PUBLIC, registre seu valor em logs ou a inclua no Git. .env.local está ignorado.
 
@@ -92,7 +133,7 @@ pnpm build
 pnpm start
 ```
 
-Hospede em ambiente compatível com Next.js server-side. Defina as três variáveis Supabase no servidor de hospedagem. WHATSAPP_WEBHOOK_VERIFY_TOKEN é futura e deve permanecer vazia nesta fase. Não use exportação estática. Não configure cache compartilhado sobre páginas autenticadas ou respostas com Set-Cookie.
+Hospede em ambiente compatível com Next.js server-side. Defina as três variáveis Supabase no servidor de hospedagem. WHATSAPP_WEBHOOK_VERIFY_TOKEN autentica apenas o challenge GET; WHATSAPP_APP_SECRET autentica o POST. Cadastre ambos como Secret, nunca com prefixo NEXT_PUBLIC. Não use exportação estática. Não configure cache compartilhado sobre páginas autenticadas ou respostas com Set-Cookie.
 
 ## Operação
 
@@ -164,7 +205,7 @@ tests/
 
 O proxy atualiza a sessão; cada ação também exige identidade verificada pelo Auth e perfil ativo consultado no banco. Os layouts protegem navegação, mas não são a única autorização.
 
-As regras críticas de atribuição e transição têm fonte de verdade no PostgreSQL. Server Actions validam tipos/formato com Zod e chamam RPCs; o cliente comum usa as credenciais do usuário. A SUPABASE_SECRET_KEY é usada no cadastro de acessos, após requireAdmin(), no bootstrap e na camada server-only de ingestão WhatsApp. Esta última só poderá ser alcançada pelo POST após autenticação do corpo bruto; essa autenticação permanece não configurada nesta fase. A UI de conversas usa exclusivamente a sessão do usuário e RLS.
+As regras críticas de atribuição e transição têm fonte de verdade no PostgreSQL. Server Actions validam tipos/formato com Zod e chamam RPCs; o cliente comum usa as credenciais do usuário. A SUPABASE_SECRET_KEY é usada no cadastro de acessos, após requireAdmin(), no bootstrap e na camada server-only de ingestão WhatsApp. Esta última só é alcançada pelo POST após validação HMAC dos bytes brutos e validação do payload. A UI de conversas usa exclusivamente a sessão do usuário e RLS.
 
 Leitura usa RLS; escrita direta em tabelas é revogada para anon/authenticated, inclusive para ADMIN. RPCs SECURITY DEFINER têm search_path vazio, qualificam objetos explicitamente e verificam o ator. Funções privadas ficam no schema app_private, não exposto pela API.
 
@@ -246,7 +287,7 @@ Não há escrita direta para ADMIN/AGENT nessas tabelas. A única RPC nova, inge
 ### Rotas e processamento
 
 - GET /api/webhooks/whatsapp: responde ao challenge apenas com mode=subscribe e token correto. Sem WHATSAPP_WEBHOOK_VERIFY_TOKEN retorna 503; parâmetro inválido retorna 403. O token serve apenas ao GET.
-- POST /api/webhooks/whatsapp: **retorna 503 enquanto o autenticador não estiver implementado/configurado**. Não há flag para contornar esse bloqueio. Uma implementação futura de WebhookAuthenticator recebe Uint8Array e headers antes de UTF-8/JSON/parser. Não foi inventada uma assinatura nem adicionado token da Meta.
+- POST /api/webhooks/whatsapp: valida HMAC-SHA256 do header X-Hub-Signature-256 com WHATSAPP_APP_SECRET sobre o Uint8Array original antes de UTF-8/JSON/parser. Assinatura ausente/malformada/incorreta retorna 403; segredo ausente ou falha de autenticação retorna 503. Não há bypass. Ver política detalhada da Fase 02C1 abaixo.
 - O handler preparado limita o corpo a 3 MiB, exige JSON e valida todo o envelope/lote antes da RPC. São suportados texto de entrada e callbacks sent/delivered/read/failed; mídia, Flows e outros eventos ficam para etapas futuras e são recusados integralmente.
 - A RPC resolve a conta ativa por phone_number_id **e** waba_id; resolve contato e conversa internamente. IDs locais, lead e autor nunca são aceitos do payload. Campos extras do envelope são descartados pelo parser; a RPC também recusa campos normalizados desconhecidos.
 - Uma chamada processa até 100 eventos em uma transação, com bloqueios de conta em ordem fixa, constraints e unicidade. Criação de contato, conversa, mensagem e evento técnico confirma ou reverte em conjunto. Falha retorna 503 ao HTTP, permitindo retry; não grava lotes parciais nem registra erro bruto potencialmente sensível. processing_error fica reservado para uma futura fila de tentativas; nesta etapa eventos confirmados têm processed_at e erro nulo.
@@ -274,7 +315,7 @@ A migration 008 substitui ingest_whatsapp_events(jsonb), sem editar 001–007. A
 | João       | João Silva                   | João       |
 | Nome atual | Nome antigo, evento atrasado | Nome atual |
 
-POST continua fechado com 503 sem autenticador. Nenhuma assinatura, chamada à Meta, envio ou mudança de regras da Fase 01 faz parte dessas correções.
+Historicamente, nas correções A01/A02, POST permaneceu fechado com 503 sem autenticador. A autenticação HMAC é uma alteração posterior da Fase 02C1; nenhuma dessas correções muda regras da Fase 01.
 
 ### Correção F03 — whitespace no nome do contato
 
@@ -288,7 +329,7 @@ Ao aplicar 009, somente nomes antigos vazios ou compostos inteiramente pelo mesm
 
 ### Homologação remota controlada (sem Meta)
 
-Os scripts operacionais são exclusivos do terminal/server-side. Eles não aplicam migrations nem alteram schema, grants, RLS ou o POST (que continua 503). Nenhuma homologação remota foi executada na criação destes scripts.
+Os scripts operacionais são exclusivos do terminal/server-side. Eles não aplicam migrations nem alteram schema, grants, RLS ou a autenticação do POST. Nenhuma homologação remota foi executada na criação destes scripts.
 
 **Permissões existentes:** a migration 006 revoga leitura/escrita direta inclusive de service_role nas tabelas WhatsApp. A secret key permite chamar a RPC, mas não preparar a conta nem consultar/limpar fixtures. Por isso, conforme a opção aprovada, os scripts usam duas conexões ao mesmo projeto: SUPABASE_SECRET_KEY para a RPC HTTP e WHATSAPP_HOMOLOGATION_DATABASE_URL administrativa para a conta fictícia, consultas e cleanup. Não há INSERT direto em contacts, conversations ou messages.
 
@@ -335,7 +376,7 @@ A conta é confirmada antes da chamada HTTP para não manter seu row lock enquan
 
 Conversas (/conversations) lista contato, telefone, última mensagem, horário, status e vínculo com lead. /conversations/[id] apresenta contato e histórico paginado, com indicação “Ainda não convertido em lead”. Não há formulário de resposta. ADMIN e AGENT usam as mesmas páginas com dados filtrados pelo banco, sem cliente privilegiado.
 
-As referências de integração são a [documentação oficial Cloud API da Meta](https://www.postman.com/meta/whatsapp-business-platform/documentation/wlk6lh4/whatsapp-cloud-api) e o [exemplo de recebimento do SDK oficial arquivado](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/receivingMessages/). Elas contextualizam o adapter; não representam homologação atual de assinatura. Antes de ativar POST, confirmar o contrato oficial vigente, implementar/testar assinatura sobre os bytes brutos e definir operação/retenção dos dados. Nunca usar o token de challenge para autenticar POST.
+As referências de integração são a [documentação oficial Cloud API da Meta](https://www.postman.com/meta/whatsapp-business-platform/documentation/wlk6lh4/whatsapp-cloud-api) e o [exemplo de recebimento do SDK oficial arquivado](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/receivingMessages/). Elas contextualizam o adapter; os testes locais da Fase 02C1 não representam entrega real pela Meta. A implementação usa crypto nativo do Node para HMAC e comparação timing-safe. Nunca usar o token de challenge para autenticar POST.
 
 Nenhuma migration remota é executada automaticamente. Revise as migrations pendentes até 009 e VALIDATION.md antes de autorizar aplicação no ambiente de destino. Os testes usam somente payloads fictícios, PostgreSQL PGlite local e authenticators de teste; não demonstram integração real com a Meta.
 
@@ -344,7 +385,7 @@ Nenhuma migration remota é executada automaticamente. Revise as migrations pend
 - Sem integração WhatsApp, chatbot, distribuição automática, campanhas, importação ou métricas adicionais.
 - Histórico, leads, conversas e mensagens têm paginação de 25 registros. Equipe/catálogo atendem à escala inicial; se ultrapassarem o limite PostgREST (1000 no config local), implemente paginação dessas consultas antes de ampliar a operação.
 - Atualização após ações e navegação; sem Supabase Realtime nesta fase.
-- Sem deploy remoto ou conexão com um projeto Supabase nesta entrega.
+- Staging público implantado na Vercel em 04/11/2026; o usuário confirmou testes de Auth/RLS com ADMIN e Bruna nesse domínio.
 
 ### Diagnóstico temporário da conexão administrativa
 

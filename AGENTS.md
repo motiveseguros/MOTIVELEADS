@@ -2,7 +2,7 @@
 
 ## Escopo
 
-Fase 01 homologada pelo usuário no Supabase remoto. Fase 02A: preparar domínio/backend/RLS e leitura de conversas WhatsApp, sem conectar Meta, usar token real, registrar número, enviar mensagens reais, implementar chatbot, coleta automática, Flows ou distribuição automática.
+Fases 01/02A e 02B homologadas pelo usuário no Supabase/staging. Fase 02C1: autenticar POSTs com HMAC-SHA256 sobre os bytes crus, sem conectar Meta, registrar número, enviar mensagens, implementar chatbot ou alterar regras de leads/RLS/migrations.
 
 ## Stack
 
@@ -84,3 +84,12 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - Preservar testes locais de confirmação, isolamento, idempotência e rollback; não confundir testes PGlite/HTTP simulado com homologação remota.
 
 - Exceção operacional explicitamente autorizada: vincular a conversa fictícia validada a lead aberto de Consórcio atribuído à Bruna, usando IDs inspecionados, locks, revisão esperada e recibo local antes do commit. Sem alterar lead, atribuição ou RLS. Reversão específica somente pelo recibo do mesmo projeto/lead/revisão; cleanup geral continua recusando lead vinculado. Recibo em .homologation/ ignorado pelo Git, sem credenciais.
+
+## Fase 02C1 — assinatura do POST
+
+- WHATSAPP_APP_SECRET é exclusivamente server-side, em .env.local ignorado pelo Git ou Vercel Secret; nunca NEXT_PUBLIC, código, testes ou logs. Fixtures de teste usam apenas segredos fictícios.
+- Validar X-Hub-Signature-256 no formato sha256= mais 64 dígitos hex, calcular HMAC-SHA256 dos bytes crus com crypto nativo e comparar buffers de tamanho igual com timingSafeEqual. Não normalizar/reescrever corpo ou chave.
+- Assinatura inválida/ausente: 403 antes de JSON.parse/parser/cliente Supabase/RPC. Segredo ausente: fail closed, 503 em requisições JSON dentro do limite. Guardas anteriores preservam 415/413/400.
+- GET usa apenas WHATSAPP_WEBHOOK_VERIFY_TOKEN; não autentica POST. Ausência do App Secret não pode ter bypass de desenvolvimento/produção.
+- Não registrar body, assinatura, digest, segredos, dados pessoais ou erros brutos. Preservar testes HMAC, bytes diferentes para JSON equivalente, limites, GET e negação de acesso ao parser/banco.
+- Preparar Vercel Secret e documentação não autoriza conectar Meta, alterar o staging, fazer deploy ou aplicar migrations automaticamente.

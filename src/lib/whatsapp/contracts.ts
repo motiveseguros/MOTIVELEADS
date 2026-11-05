@@ -23,7 +23,7 @@ export interface ProcessingResult {
   duplicates: number;
   statuses: number;
 }
-/** Implement against the official signature contract before enabling the public POST. */
+/** Verify original HTTP bytes before decoding/parsing; configuration failures must throw. */
 export interface WebhookAuthenticator {
   verify(rawBody: Uint8Array, headers: Headers): Promise<boolean>;
 }

@@ -1,5 +1,62 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 02C1 — autenticação HMAC local — 05/11/2026
+
+Implementado autenticador isolado server-only em src/lib/whatsapp/signature.ts, conectado à rota Node.js existente. Usa createHmac("sha256", App Secret textual) sobre o Uint8Array original e timingSafeEqual entre digests de 32 bytes. O header deve ter exatamente sha256= mais 64 caracteres hexadecimais; formato e tamanho são verificados antes de decodificar hex/comparar. App Secret é resolvido por requisição e não é substituído por verify token ou access token.
+
+A leitura limitada a 3 MiB já existente foi preservada: chunks são concatenados sem decodificação, normalização ou reserialização. Só após HMAC válido ocorre UTF-8, JSON.parse, parser e persistência pela RPC existente. GET foi preservado integralmente. Assinatura ausente/malformada/incorreta retorna 403; segredo ausente/vazio ou falha de autenticação retorna 503. Guardas de transporte anteriores continuam 415/413/400; payload autenticado inválido retorna 400 e falha de persistência retorna 503, sempre sanitizados. Não foram adicionados logs de requisição.
+
+29 testes novos em tests/whatsapp-signature.test.ts: vetor conhecido RFC 4231; sucesso pela rota real, parser real e camada de persistência real com cliente/RPC substituídos localmente; dez formas de assinatura rejeitada; ausência do segredo; não utilização do verify token; alteração de um byte; JSON equivalente com bytes diferentes; Unicode/whitespace e chunks dividindo UTF-8; hex maiúsculo; payload/JSON inválido autenticado; falha sanitizada da RPC; limites por tamanho real, Content-Length e header subestimado; GET e ausência de logs sensíveis. Spies confirmam que as rejeições não chamam JSON.parse, parser, createAdminClient ou RPC. Nenhuma conexão de teste usa Supabase remoto. O teste antigo de POST fechado foi atualizado para configurar explicitamente App Secret ausente.
+
+Validação final executada sequencialmente:
+
+| Comando        | Resultado                                     |
+| -------------- | --------------------------------------------- |
+| pnpm lint      | Aprovado, código 0                            |
+| pnpm typecheck | Aprovado, código 0                            |
+| pnpm test      | 233 testes aprovados em 10 arquivos, código 0 |
+| pnpm build     | Aprovado, código 0                            |
+| pnpm format    | Aprovado, código 0                            |
+
+A suíte mantém 44 testes SQL da Fase 01, 63 testes de banco WhatsApp (incluindo A01/A02/F03, upgrades, RLS e atomicidade), além das regressões de UI, validação e scripts. Os testes HTTP usam requisições locais e mocks apenas na fronteira administrativa do banco; não são homologação de entrega real da Meta.
+
+O build usou .env.local, ignorado pelo Git, com WHATSAPP_APP_SECRET exclusivamente server-side. Foram examinados os 18 arquivos de .next/static: nenhum contém os valores do App Secret, Supabase Secret ou verify token; nem a referência WHATSAPP_APP_SECRET aparece nesses assets. A varredura de 109 arquivos versionados/novos também não encontrou esses valores. Nenhuma secret foi incluída em código, testes ou documentação. next-env.d.ts, regenerado pelo build, foi restaurado ao conteúdo anterior para evitar alteração fora do escopo.
+
+Arquivos desta fase: src/lib/whatsapp/signature.ts (novo), src/app/api/webhooks/whatsapp/route.ts, src/lib/whatsapp/contracts.ts (comentário), tests/whatsapp-signature.test.ts (novo), tests/whatsapp-webhook.test.ts, .env.example, README.md, AGENTS.md e VALIDATION.md. .env.local recebeu o segredo fora do Git; README/VALIDATION preservam também os registros locais anteriores da Fase 02B.
+
+Vercel preparada por instruções para cadastrar WHATSAPP_APP_SECRET como Secret antes de um futuro deploy. Não houve configuração remota, commit/push, deploy, conexão Meta, cadastro de número, envio, chatbot, alteração de leads/distribuição, banco ou RLS. As nove migrations 001–009 permanecem intactas e nenhuma migration foi criada. O staging segue executando a Fase 02B com POST 503, até publicação explicitamente solicitada desta implementação.
+
+## Challenge configurado no staging — 04/11/2026
+
+O usuário informou que entrou como ADMIN e Bruna no endereço público para conferir Auth/RLS fora de localhost. Essa confirmação é do usuário; o agente não repetiu login com essas contas.
+
+WHATSAPP_WEBHOOK_VERIFY_TOKEN foi gerado com 32 bytes aleatórios criptográficos, preservado no .env.local ignorado pelo Git e cadastrado como Secret somente em Production do projeto motive-leads-staging. É um segredo próprio de challenge, não access token da Meta. As variáveis administrativas PostgreSQL permanecem exclusivamente locais.
+
+Redeploy `dpl_9WwEHjpBxBKDBjB9sxWzm7cMrzTz` READY, mesmo commit `251d4786bf7936df1db932b3f1ab0a8a08e19622`, build reportado de 39 segundos. URL estável: https://motive-leads-staging.vercel.app. Testes HTTP reais no endpoint público:
+
+- GET com mode=subscribe, token correto e challenge fictício: 200, corpo exatamente igual ao challenge, Cache-Control: no-store.
+- GET com token incorreto: 403.
+- GET sem token: 403.
+- POST com JSON fictício vazio: 503; o token GET não habilitou ingestão.
+
+Nenhuma interação com a Meta, access token, mudança de código, migrations, RLS ou banco. O valor do verify token não foi impresso nem incluído nos arquivos versionados. README.md e VALIDATION.md registram esta configuração localmente, sem novo commit/push. Os resultados do primeiro deploy abaixo são históricos.
+
+## Primeiro deploy de staging — 04/11/2026
+
+Fase 02A encerrada como homologada por declaração do usuário. Primeiro deploy da Fase 02B na equipe MOTIVE (`motive20`), projeto `motive-leads-staging`, repositório privado `motiveseguros/MOTIVELEADS`, branch `main`, commit `251d4786bf7936df1db932b3f1ab0a8a08e19622` (tag `phase-02a-homologated`).
+
+- Deployment: `dpl_ZmCAVZzgJPGRWg8i1a2htms1QK6j`, estado READY.
+- URL estável: https://motive-leads-staging.vercel.app
+- Next.js 16.4.3; build remoto e verificação TypeScript concluídos. Build reportado pela Vercel: 33 segundos. pnpm 10.28.0 selecionado automaticamente; configuração Node 26.x. O requisito aberto `engines.node >=22.12.0` gerou aviso sobre upgrades futuros, sem falha.
+- Somente três variáveis em Production: URL e publishable key como Config; SUPABASE_SECRET_KEY como Secret (metadado API sensitive). Nenhuma variável administrativa PostgreSQL foi enviada.
+- GET `/` redirecionou para `/login`, HTTP final 200; formulário real conferido visualmente no navegador.
+- GET `/conversations` sem sessão retornou 307 para `/login`.
+- POST `/api/webhooks/whatsapp` com corpo fictício `{}` retornou 503 e mensagem de autenticidade não configurada.
+- Secret ausente do HTML da página de login e dos dez arquivos JavaScript referenciados por ela, todos com HTTP 200. Essa conferência se limita aos assets carregados nessa página.
+- Consulta de logs de execução com level:error, entre 19:57:17 e 20:02:17 UTC, retornou zero registros. A janela inicial de uma hora não era suportada pela retenção do plano Hobby; foi usada a janela de cinco minutos. Nenhuma integração adicional de monitoramento foi configurada nesta tarefa.
+
+Não foi realizado login com usuário real neste domínio nem retestada a operação autenticada de ADMIN/AGENT. Não houve aplicação de migrations, db push, alteração de banco/RLS, conexão Meta ou habilitação do recebimento real. Nenhuma credencial foi adicionada aos arquivos versionados. As alterações locais desta etapa são documentais (README.md e VALIDATION.md), posteriores ao commit implantado; não modificam a aplicação publicada. Os relatórios históricos abaixo preservam as limitações vigentes em suas respectivas datas.
+
 ## Vínculo administrativo autorizado da fixture — 28/10/2026
 
 Operação solicitada explicitamente pelo usuário: localizar MOTIVE HOMOLOGACAO e um lead de Consórcio atribuído à Bruna, vincular a conversa e preparar reversão específica. A consulta remota somente leitura encontrou uma única conversa OPEN com lead_id NULL e um único lead de Consórcio em IN_PROGRESS atribuído à Bruna Caldeira ativa. A conexão utilizou o CA configurado com verificação TLS.

@@ -1,11 +1,14 @@
 import { createWebhookHandlers } from "@/lib/whatsapp/webhook";
 import { persistWebhookEvents } from "@/lib/whatsapp/processing";
+import { createMetaWebhookAuthenticator } from "@/lib/whatsapp/signature";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Deliberately no authenticator until the official signature adapter is implemented.
-// Setting the GET verify token alone never enables POST persistence.
+// GET verification and POST HMAC authentication use distinct server-only secrets.
 const handlers = createWebhookHandlers({
   verifyToken: () => process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+  authenticator: createMetaWebhookAuthenticator(
+    () => process.env.WHATSAPP_APP_SECRET,
+  ),
   persist: persistWebhookEvents,
 });
 export const GET = handlers.GET;

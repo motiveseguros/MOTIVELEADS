@@ -69,8 +69,9 @@ describe("challenge e fronteira HTTP", () => {
     const { handlers } = configured();
     expect((await handlers.GET(new Request(url + query))).status).toBe(403);
   });
-  it("POST de produção permanece fechado mesmo configurando token de GET", async () => {
+  it("POST sem App Secret permanece fechado mesmo configurando token de GET", async () => {
     vi.stubEnv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "test-verification-only");
+    vi.stubEnv("WHATSAPP_APP_SECRET", "");
     expect((await POST(request(webhookPayload()))).status).toBe(503);
     expect(persistWebhookEvents).not.toHaveBeenCalled();
   });
