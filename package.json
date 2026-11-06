@@ -15,7 +15,9 @@
     "format:check": "prettier --check .",
     "homologate": "node scripts/homologate-whatsapp-remote.mjs",
     "homologate:whatsapp:cleanup": "node scripts/cleanup-whatsapp-homologation.mjs",
-    "homologate:whatsapp:unlink": "node scripts/revert-whatsapp-homologation-link.mjs"
+    "homologate:whatsapp:unlink": "node scripts/revert-whatsapp-homologation-link.mjs",
+    "provision:whatsapp": "node scripts/provision-whatsapp-test-account.mjs",
+    "provision:whatsapp:test": "node scripts/provision-whatsapp-test-account.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "1.5.0",

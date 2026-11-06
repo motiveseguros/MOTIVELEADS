@@ -1,5 +1,83 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 02C homologada com tráfego real de teste — 06/11/2026
+
+Escopo concluído: número de TESTE da Meta → webhook de staging → pipeline autenticado/RPC Supabase → interface ADMIN, com negação de acesso à conversa sem lead para Bruna. Não representa homologação de número oficial, envio, chatbot ou publicação do app.
+
+### Associação app/WABA
+
+GET /v27.0/1169885138706340/subscribed_apps no Graph API Explorer inicialmente listou somente WA DevX Webhook Events 1P App (2202427980234937). Após confirmação explícita do usuário, POST no mesmo endpoint retornou success=true. O GET seguinte confirmou MOTIVE LEADS (1139169371917116) em data[].whatsapp_business_api_data.id e preservou o app interno. Access token não foi gravado no repositório, incluído em evidências ou exibido no chat; após a consulta, o campo do Explorer foi limpo.
+
+### Entrega real e persistência
+
+O usuário enviou do WhatsApp pessoal para +1 (555) 156-4835 o texto de teste “opa motive webhook 01”. A sessão ADMIN no staging mostrou a conversa e exatamente uma mensagem recebida, sem lead. Auditoria PostgreSQL administrativa somente leitura, com CA/TLS verificado e transação revertida, confirmou WABA 1169885138706340, Phone Number ID 1519898697862586, conta active=true, 1 contato correspondente, conversa OPEN, lead_id=NULL, 1 mensagem INBOUND/text/RECEIVED e 1 webhook_event correlacionado com processed_at preenchido e processing_error=NULL. Nenhuma mensagem foi inserida manualmente durante esta homologação.
+
+Timestamp da Meta: 06/11/2026 10:53:45 America/Sao_Paulo; gravação: 10:53:49.750, cerca de 4,75 segundos depois. O recebimento pelo pipeline implantado exige HMAC válido; não foi capturado isoladamente o status HTTP deste POST nos logs da Vercel, pois houve entrega bem-sucedida e não foi necessário iniciar a investigação de falha.
+
+### RLS com sessão real de Bruna
+
+Sessão identificada na interface como Bruna Caldeira — Agente: /conversations retornou zero registros. A primeira tentativa de acesso direto coincidiu com perda de autenticação e foi considerada inconclusiva. Após novo login, repetiu-se a lista vazia e o endereço direto da mesma conversa exibiu “Registro não encontrado” / “Ele pode não existir ou estar fora do seu acesso”, com Bruna ainda identificada no cabeçalho. Ao retornar ao dashboard, a sessão permaneceu autenticada. Assim, a negação final não foi confundida com ausência de login.
+
+Evidências locais fora do Git, em ../../work/: meta-waba-subscription-confirmed-20261106.png, meta-inbound-admin-20261106.png, meta-inbound-db-audit-20261106.json, meta-inbound-bruna-list-20261106.png e meta-inbound-bruna-denied-20261106.png. Dados pessoais não foram copiados para esta documentação.
+
+Nenhuma alteração de código, migrations, RLS, atribuição ou leads; nenhuma publicação/redeploy, envio pela Cloud API, número oficial ou chatbot. Apenas README.md e VALIDATION.md atualizados ao concluir. Suite anterior: 264 testes aprovados; não foi reexecutada neste teste operacional sem alteração de código. As pendências históricas de subscribed_apps e entrega real registradas em 05/11 estão resolvidas neste escopo.
+
+## Correção autorizada do WABA e configuração Meta — 05/11/2026
+
+O painel autenticado do app MOTIVE LEADS (1139169371917116) confirmou: WABA/identificação da conta de mensagens 1169885138706340, Phone Number ID 1519898697862586 e número de teste +1 (555) 156-4835. O ID anteriormente informado como WABA, 1281001924190390, é o portfólio empresarial. Os registros históricos abaixo descrevem a configuração anterior, agora substituída.
+
+Após confirmação explícita do usuário, foi corrigido somente whatsapp_accounts.waba_id da conta META TEST NUMBER no projeto frhivqlldgakifqdfpyv. Transação com CA/TLS verificado, advisory lock e row lock, validação exata dos valores anteriores, active=true e ausência de contatos relacionados. UPDATE limitado ao UUID e identidade anterior; uma linha retornada e COMMIT confirmado. Recibo local fora do repositório: ../../work/meta-test-waba-correction-receipt.json, com estado anterior sem credenciais. Nenhuma outra conta, mensagem, lead, migration ou política RLS alterada.
+
+Lista restrita do provisionador, variável WHATSAPP_TEST_WABA_ID no .env.local ignorado e exemplos atualizados. Acrescentado teste que recusa o ID do portfólio como WABA; não foi criado fallback para alterar identidades divergentes automaticamente.
+
+Callback https://motive-leads-staging.vercel.app/api/webhooks/whatsapp salvo na Meta com o verify token existente, sem expor o valor. Após retornar à configuração, URL persistida, token mascarado e tabela de campos visíveis. Messages estava automaticamente assinado; desmarcados os nove campos extras automaticamente assinados. Estado final: somente messages Assinado, versão v27.0. Evidências locais em ../../work/meta-webhook-callback-salvo.png e ../../work/meta-webhook-messages-assinado.png.
+
+Checagem HTTP independente: GET válido 200 e challenge idêntico; token inválido 403; POST JSON sem assinatura 403. Não foi enviado payload suportado, mensagem ou chamada de envio. Nenhum access token criado. App não publicado; painel informa limitação a webhooks de teste do painel enquanto não publicado. Não foi verificado subscribed_apps separadamente nem homologado recebimento ponta a ponta Meta→RPC→banco.
+
+Validação local: pnpm lint, pnpm typecheck, pnpm test, pnpm build e pnpm format aprovados. 264 testes aprovados em 11 arquivos.
+
+## Execução autorizada do provisionamento remoto — 05/11/2026
+
+Por solicitação explícita do usuário, foi adicionado o alias pnpm provision:whatsapp:test para o mesmo script do comando pnpm provision:whatsapp e executado em terminal interativo. A confirmação exata incluiu o projeto frhivqlldgakifqdfpyv e Phone Number ID 1519898697862586. O script manteve CA configurada e rejectUnauthorized=true, transação, locks e proteções de identidade.
+
+Resultado: código 0 após COMMIT. A releitura da própria conta dentro da transação retornou name=META TEST NUMBER, waba_id=1281001924190390, phone_number_id=1519898697862586, display_phone_number=+1 (555) 156-4835 e active=true. O script não diferencia criação de reutilização na saída; não se afirma qual ocorreu.
+
+Não houve DELETE, alteração de fixture MOTIVE HOMOLOGACAO ou outras contas pelo script, migrations/RLS, conexão à API Meta, envio ou chatbot. Nenhuma credencial foi impressa ou versionada. A execução remota foi deliberadamente autorizada neste pedido, após a criação/testes locais descritos abaixo.
+
+## Provisionamento controlado do número de teste — 05/11/2026
+
+Criados scripts/provision-whatsapp-test-account.mjs e scripts/lib/whatsapp-test-provisioning.mjs; comando pnpm provision:whatsapp. Schema conferido na migration 006: id UUID com default, name text (1–120), waba_id/phone_number_id text numérico (1–64), phone_number_id único, display_phone_number text (1–40), active boolean. Testes executam todas as migrations 001–009 reais no PGlite local.
+
+O script lê apenas as cinco variáveis de configuração administrativa/teste solicitadas. O par WABA 1281001924190390 / Phone Number ID 1519898697862586 e o telefone +1 (555) 156-4835 foram explicitamente autorizados pelo usuário como número de teste; estão protegidos por lista restrita além da validação de formato. Nenhuma chamada à Meta é feita para verificar/provisionar essas informações. A identificação da conta de mensagens não foi usada porque não integra as colunas necessárias.
+
+Antes de qualquer conexão, exige TTY e frase exata com project-ref/phone_number_id. Sem confirmação, pipe/flags ou configuração válida não conecta. Reutiliza o carregador de CA existente, ssl.ca com rejectUnauthorized=true; não aceita parâmetros sobrescrevendo TLS e não imprime URL, senha, secrets ou erros brutos. Não precisa de SUPABASE_SECRET_KEY, App Secret ou access token.
+
+Provisionamento em transação, advisory lock e row lock, com INSERT restrito à conta e UPDATE por UUID + name + WABA + Phone Number ID esperados. Conflitos de identidade/nome e UUID da fixture são recusados. Consultas leem somente a conta pelo phone_number_id único. Atualiza display/active somente se divergirem; repetição exata não toca updated_at. Saída final contém apenas os cinco campos solicitados. Não há DELETE, alteração de outras contas nem escrita em contatos, conversas, mensagens ou eventos.
+
+30 testes permanentes novos cobrem configuração incompleta/insegura, destino não autorizado, fixture, confirmação anterior à conexão, encerramento da conexão em falha, erros sanitizados, idempotência integral, atualização restrita, colisões e rollback após INSERT/UPDATE. Os testes não abrem banco remoto. Locks de concorrência foram inspecionados no SQL; simultaneidade com conexões PostgreSQL reais não foi homologada.
+
+| Comando        | Resultado                                     |
+| -------------- | --------------------------------------------- |
+| pnpm lint      | Aprovado, código 0                            |
+| pnpm typecheck | Aprovado, código 0                            |
+| pnpm test      | 263 testes aprovados em 11 arquivos, código 0 |
+| pnpm build     | Aprovado, código 0                            |
+| pnpm format    | Aprovado, código 0                            |
+
+Arquivos desta etapa: scripts/provision-whatsapp-test-account.mjs, scripts/lib/whatsapp-test-provisioning.mjs, tests/whatsapp-provisioning.test.mjs, package.json, .env.example, README.md, AGENTS.md e VALIDATION.md. Os três valores do número de teste foram preparados no .env.local ignorado pelo Git; credenciais existentes foram preservadas. Alterações documentais anteriores da publicação 02C1 foram mantidas. next-env.d.ts foi restaurado após regeneração pelo build.
+
+Nenhum script remoto foi executado, nenhum banco/conta remota alterado, nenhuma migration criada ou editada e nenhuma alteração de RLS. Sem Meta, número oficial, envio, chatbot, push ou deploy nesta tarefa. Para provisionar, o operador deve executar pnpm provision:whatsapp na raiz do projeto e confirmar o destino exibido.
+
+## Publicação autorizada da Fase 02C1 — 05/11/2026
+
+WHATSAPP_APP_SECRET cadastrado como Secret em Production do projeto motive-leads-staging, equipe MOTIVE (motive20), sem log do valor. Implementação previamente validada com 233 testes registrada no commit `748a049f309e44fc3e63c3415c8e57eacd38dd1c` e enviada ao repositório privado motiveseguros/MOTIVELEADS. Nenhuma credencial incluída no commit; .env.local permaneceu ignorado.
+
+O push não apresentou novo deploy na listagem consultada; foi solicitado explicitamente um deploy Git do mesmo SHA. Deployment `dpl_4usgtDF1JJwGmX6gALbSFrZqxm2i`: READY, target production no projeto de staging, build reportado de 16 segundos. Alias confirmado: https://motive-leads-staging.vercel.app.
+
+Verificação HTTP no alias público: POST sem assinatura = 403; assinatura incorreta = 403; assinatura válida sobre `{}` = 400 por payload não suportado (autenticação aceita antes do parser, sem RPC); GET challenge com token correto = 200 e corpo exato. Nenhum payload válido para ingestão foi enviado, nenhum banco/migration/RLS alterado e nenhuma conexão Meta realizada.
+
+Este registro e a atualização do README são documentação local posterior ao commit implantado. Os registros anteriores abaixo preservam o estado observado em cada etapa.
+
 ## Fase 02C1 — autenticação HMAC local — 05/11/2026
 
 Implementado autenticador isolado server-only em src/lib/whatsapp/signature.ts, conectado à rota Node.js existente. Usa createHmac("sha256", App Secret textual) sobre o Uint8Array original e timingSafeEqual entre digests de 32 bytes. O header deve ter exatamente sha256= mais 64 caracteres hexadecimais; formato e tamanho são verificados antes de decodificar hex/comparar. App Secret é resolvido por requisição e não é substituído por verify token ou access token.

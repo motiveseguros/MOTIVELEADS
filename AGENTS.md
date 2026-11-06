@@ -93,3 +93,17 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - GET usa apenas WHATSAPP_WEBHOOK_VERIFY_TOKEN; não autentica POST. Ausência do App Secret não pode ter bypass de desenvolvimento/produção.
 - Não registrar body, assinatura, digest, segredos, dados pessoais ou erros brutos. Preservar testes HMAC, bytes diferentes para JSON equivalente, limites, GET e negação de acesso ao parser/banco.
 - Preparar Vercel Secret e documentação não autoriza conectar Meta, alterar o staging, fazer deploy ou aplicar migrations automaticamente.
+
+## Provisionamento do número de TESTE
+
+- Exceção administrativa explicitamente autorizada: pnpm provision:whatsapp pode criar/reativar/atualizar somente META TEST NUMBER para o par WABA/Phone Number ID de teste autorizado, após confirmação interativa do projeto e número. Nunca executar automaticamente.
+- .env.local fornece WHATSAPP_TEST_WABA_ID, WHATSAPP_TEST_PHONE_NUMBER_ID, WHATSAPP_TEST_DISPLAY_PHONE_NUMBER, WHATSAPP_HOMOLOGATION_DATABASE_URL e SUPABASE_DATABASE_CA_PATH. Reutilizar CA com rejectUnauthorized=true; não requer secrets HTTP nem acesso à Meta.
+- Recusar destinos fora da lista autorizada e colisões de identidade. Preservar MOTIVE HOMOLOGACAO, outras contas e todas as tabelas de mensagens/leads. Sem DELETE, migrations, RLS, número oficial, chatbot ou envio.
+- Repetição deve preservar o estado; validar rollback, proteção da fixture e confirmação antes de conectar. Saída restrita aos cinco campos da própria conta e mensagens fixas sanitizadas.
+
+## Webhook Meta — exceção autorizada de teste (05/11/2026)
+
+- Usuário autorizou configurar somente o app MOTIVE LEADS 1139169371917116 e número de teste +1 (555) 156-4835, Phone Number ID 1519898697862586, WABA 1169885138706340. O ID 1281001924190390 identifica o portfólio empresarial; não usá-lo como WABA.
+- Callback de staging verificado e somente messages assinado (v27.0). Preservar GET verify token distinto de App Secret do POST. Não publicar app, registrar número oficial, enviar mensagens ou ampliar assinaturas automaticamente.
+- A correção administrativa autorizada do WABA foi específica para META TEST NUMBER, mantendo active=true; não tornar o provisionador permissivo para identidades divergentes.
+- Configuração de callback/assinatura do campo não comprova entrega inbound, persistência ou associação via subscribed_apps. Homologar isso separadamente, sem afirmar sucesso end-to-end antes de observar.

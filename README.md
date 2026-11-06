@@ -6,7 +6,7 @@ Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, compon
 
 ## Estado da entrega
 
-As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 implementa localmente a autenticação HMAC dos POSTs; ainda não foi publicada e não conecta a Meta, número oficial ou recebimento real. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
+As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 foi publicada no staging em 05/11/2026, commit `748a049`, com autenticação HMAC dos POSTs. A Meta, o número oficial e o recebimento real ainda não foram conectados. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
 
@@ -24,12 +24,13 @@ Somente estas variáveis foram cadastradas no ambiente **Production** do projeto
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Config      |
 | `SUPABASE_SECRET_KEY`                  | Secret      |
 | `WHATSAPP_WEBHOOK_VERIFY_TOKEN`        | Secret      |
+| `WHATSAPP_APP_SECRET`                  | Secret      |
 
 O verify token é um segredo próprio para o GET de challenge, gerado com 32 bytes aleatórios e mantido no `.env.local` ignorado pelo Git e como Secret na Vercel. Não é access token da Meta. O endpoint futuro é `https://motive-leads-staging.vercel.app/api/webhooks/whatsapp`; ainda não foi cadastrado na Meta.
 
 A secret permanece server-side e não pode ter prefixo `NEXT_PUBLIC_`. `WHATSAPP_HOMOLOGATION_DATABASE_URL` e `SUPABASE_DATABASE_CA_PATH` ficam exclusivamente no ambiente administrativo local. Não executar `vercel env pull` sobre `.env.local`, pois pode sobrescrever a configuração local e não recupera Secrets de Production. Preview e Development não receberam credenciais nesta configuração.
 
-A URL é pública, mas o painel exige autenticação Supabase. O staging publicado da Fase 02B mantém POST `/api/webhooks/whatsapp` fechado com 503; o código local da Fase 02C1 passa a exigir HMAC antes de processar POSTs. GET de challenge não habilita POST. O deploy não aplica migrations nem executa scripts de homologação. Não houve alteração de schema, RLS ou integração Meta. Consulte VALIDATION.md para verificações e limites.
+A URL é pública, mas o painel exige autenticação Supabase. O staging publicado da Fase 02C1 exige HMAC antes de processar POSTs em `/api/webhooks/whatsapp`. Assinatura ausente/inválida retorna 403; App Secret ausente retorna 503. GET de challenge não habilita POST. O deploy não aplica migrations nem executa scripts de homologação. Não houve alteração de schema, RLS ou integração Meta. Consulte VALIDATION.md para verificações e limites.
 
 ## Fase 02C1 — autenticação HMAC do POST
 
@@ -48,7 +49,7 @@ Política HTTP:
 
 Não foram adicionados logs de requisição. Nunca registrar segredo, assinatura, digest, body, dados pessoais ou erros brutos. O verify token do GET e o App Secret do POST são controles distintos.
 
-Preparação de staging: cadastrar WHATSAPP_APP_SECRET como **Secret**, somente no ambiente Production do projeto separado motive-leads-staging, antes de um futuro deploy da Fase 02C1. Não usar NEXT_PUBLIC nem publicar o valor no repositório. Esta implementação não cadastra a variável remota, faz push/deploy, configura Meta, registra número ou implementa envio. O staging da Fase 02B permanece inalterado.
+WHATSAPP_APP_SECRET foi cadastrado como **Secret**, somente no ambiente Production do projeto separado motive-leads-staging, antes do deploy autorizado da Fase 02C1. Não usar NEXT_PUBLIC nem publicar o valor no repositório. Deployment `dpl_4usgtDF1JJwGmX6gALbSFrZqxm2i`, commit `748a049`, READY em 05/11/2026. Nenhuma configuração na Meta, número, envio ou alteração no banco foi realizada.
 
 ## Setup
 
@@ -398,3 +399,49 @@ A operação administrativa específica de homologação pode vincular somente a
 O recibo de reversão fica em `.homologation/whatsapp-lead-link.json`, ignorado pelo Git e sem credenciais. Preserve-o, inclusive após falha de commit, para inspecionar resultado indeterminado. Não o edite. Para remover somente esse vínculo, execute `pnpm homologate:whatsapp:unlink` e confirme projeto/conversa no terminal. A reversão exige a mesma fixture, lead e revisão gravados no recibo; se houve alteração posterior, interrompe sem modificar dados. Ela define somente `conversations.lead_id = NULL` (e o trigger existente atualiza updated_at), sem excluir mensagem, contato, conversa ou lead. Não execute a reversão se deseja manter o vínculo para homologação.
 
 O cleanup geral continua recusando fixture vinculada. Após a reversão específica, pode-se executar o cleanup geral separadamente, se desejado.
+
+## Provisionamento controlado do número de TESTE da Meta
+
+Execute na raiz do projeto, em terminal interativo:
+
+```sh
+pnpm provision:whatsapp
+```
+
+O alias `pnpm provision:whatsapp:test` executa o mesmo script, com as mesmas confirmações e proteções.
+
+O comando executa scripts/provision-whatsapp-test-account.mjs. Não faz chamadas à Meta, envio, ingestão de mensagens, migrations ou alterações de RLS. Usa exclusivamente PostgreSQL administrativo para a infraestrutura whatsapp_accounts. Não deve ser executado automaticamente em build, CI ou deploy.
+
+Configure localmente:
+
+```dotenv
+WHATSAPP_TEST_WABA_ID=1169885138706340
+WHATSAPP_TEST_PHONE_NUMBER_ID=1519898697862586
+WHATSAPP_TEST_DISPLAY_PHONE_NUMBER=+1 (555) 156-4835
+WHATSAPP_HOMOLOGATION_DATABASE_URL=
+SUPABASE_DATABASE_CA_PATH=./certs/supabase-ca.crt
+```
+
+A URL administrativa deve apontar ao projeto desejado, direta ou pooler de sessão, porta 5432; o script deriva e exibe o project-ref antes de conectar. A URL deve conter a credencial local e não deve ser compartilhada/versionada. O CA deve ser o oficial do Supabase; TLS usa ca e rejectUnauthorized=true, sem depender de sslmode=require. Não precisa de SUPABASE_SECRET_KEY, App Secret ou access token. Essas variáveis de provisionamento não devem ir para a Vercel.
+
+Somente o par WABA/Phone Number ID acima e o telefone de teste correspondente são aceitos. Essa restrição está explícita no script, além da validação dos IDs numéricos de 1–64 dígitos e display de até 40 caracteres. Outro número de teste exige revisão deliberada; trocar o .env.local não permite provisionar número oficial. A identificação da conta de mensagens mostrada pela Meta é o WABA ID (1169885138706340). O ID do portfólio empresarial (1281001924190390) não deve ser usado como WABA.
+
+Confirme com a frase exata exibida: PROVISIONAR TESTE <project-ref> 1519898697862586. Não há --yes ou confirmação por pipe. Somente após essa confirmação o script carrega o CA e conecta.
+
+Cria name=META TEST NUMBER e active=true. Reutiliza somente conta com o mesmo phone_number_id, waba_id e name; divergências e o UUID protegido de MOTIVE HOMOLOGACAO abortam sem alteração. Pode reativar e atualizar a apresentação do telefone da própria conta. Repetir com os mesmos valores é no-op, inclusive updated_at. Transação, advisory lock, row lock e índice único protegem consistência; falhas revertem gravações. Não há DELETE, escrita em contatos/conversas/mensagens ou alteração de outras contas.
+
+A consulta final é limitada à própria conta e imprime apenas name, waba_id, phone_number_id, display_phone_number e active. Nunca imprime connection string, senha, secrets ou erro bruto do driver. Em falha de rede no COMMIT o resultado pode ser indeterminado; repetir com os mesmos IDs é seguro.
+
+O comando foi validado localmente com PGlite e testes de segurança. Em 05/11/2026, após solicitação explícita do usuário, `pnpm provision:whatsapp:test` foi executado no projeto configurado: código 0 e conta de teste confirmada com active=true. Concorrência com conexões reais ainda depende de homologação operacional.
+
+### Callback Meta configurado para staging — 05/11/2026
+
+App MOTIVE LEADS (1139169371917116), callback https://motive-leads-staging.vercel.app/api/webhooks/whatsapp salvo após verificação com WHATSAPP_WEBHOOK_VERIFY_TOKEN. Somente messages está assinado, versão v27.0; campos extras automaticamente assinados pela Meta foram desmarcados. Nenhum access token foi criado e nenhum número oficial foi conectado. O painel informa que apps não publicados recebem apenas webhooks de teste enviados pelo painel; o app não foi publicado nesta operação.
+
+GET com token válido: 200 e challenge exato; token inválido: 403; POST sem assinatura: 403. O estado do painel comprova callback e assinatura do campo; ainda não comprova entrega inbound até o banco nem foi consultada separadamente a associação app/WABA via subscribed_apps.
+
+### Fase 02C homologada com tráfego real de teste — 06/11/2026
+
+Associação do app MOTIVE LEADS (1139169371917116) à WABA 1169885138706340 confirmada por POST subscribed_apps seguido de GET. Mensagem enviada pelo usuário ao número de teste chegou ao staging e ao Supabase: contato, conversa OPEN sem lead, uma mensagem INBOUND/RECEIVED e evento processado sem erro. ADMIN visualizou; Bruna autenticada recebeu lista vazia e “Registro não encontrado” ao acessar a conversa diretamente, mantendo a sessão ativa.
+
+As pendências de associação e entrega registradas acima em 05/11 estão resolvidas para esse teste. Evidências e limites em VALIDATION.md. Sem número oficial, envio pela Cloud API, chatbot, publicação do app, migrations ou alteração de RLS; a homologação não autoriza automaticamente ampliar esse escopo.
