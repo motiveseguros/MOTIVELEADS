@@ -1,5 +1,48 @@
 # Verificação — MOTIVE LEADS
 
+## Aplicação remota autorizada da Fase 03A — 09/11/2026
+
+Após aprovação explícita do usuário, pnpm exec supabase db push --linked aplicou somente 202611060010_conversation_to_lead.sql, com código 0. A execução posterior de pnpm exec supabase migration list --linked confirmou as dez versões 001–010 iguais no local e no remoto. Nenhuma seed, role ou outra migration foi aplicada. Esta aplicação sucede o parecer histórico abaixo, que corretamente registrava a 010 ainda não aplicada na data de sua conclusão.
+
+Código 03A autorizado para publicação em main pelo fluxo Git/Vercel. Nenhuma tag de homologação 03A deve ser criada nesta entrega; a homologação funcional ADMIN/AGENT em staging permanece uma etapa separada.
+
+## Auditoria final da Fase 03A — concluída em 09/11/2026
+
+Consulte [AUDIT_PHASE03A.md](AUDIT_PHASE03A.md) para o parecer completo. Nenhum defeito P0/P1/P2/P3 reproduzido. Concorrência comprovada com duas conexões independentes em PostgreSQL 17.11 nativo local: mesma conversa produziu 1 lead, 2 eventos e zero órfãos; segunda operação aguardou o lock e retornou o mesmo UUID. RLS, rollback e grants também verificados. Isso resolve a pendência de comprovação de locking em PostgreSQL nativo, mas não substitui homologação Auth/PostgREST e UI no Supabase.
+
+Regressão reexecutada nesta auditoria: 311 testes/14 arquivos, lint, typecheck, build e format aprovados. Código e migrations preservados. Dry-run remoto autorizado pelo parecer limpo executado com código 0 e listou somente 202611060010_conversation_to_lead.sql. Migration 010 não foi aplicada remotamente; nenhum código publicado ou alteração na Meta. **Fase 03A apta para dry-run da migration 010.**
+
+## Fase 03A — implementação local em 06/11/2026
+
+Antes das mudanças da Fase 03A, o commit `f9581eb62f2be445e5f324a24d3dc9301952bcdd` e a tag `phase-02c-homologated` foram publicados no GitHub privado motiveseguros/MOTIVELEADS. `git ls-remote` confirmou main e tag no mesmo hash. O push desse marco pode disparar o deploy automático da integração Git/Vercel; não foi feita publicação do código 03A.
+
+Implementação: migration `202611060010_conversation_to_lead.sql`, Server Action autenticada, formulário ADMIN com dados do contato e produto ativo, entrada na conversa e link de origem no histórico do lead. Uma RPC bloqueia a conversa, reaproveita create_lead, vincula o lead criado e registra a conversão na mesma transação. Repetição retorna o vínculo existente; primeira conversão prevalece. Sem alteração de perfil do contato ou das mensagens.
+
+### Verificações executadas
+
+- pnpm lint: aprovado, código 0.
+- pnpm typecheck: aprovado, código 0.
+- pnpm test: **311 testes aprovados em 14 arquivos**, incluindo 47 novos casos.
+- pnpm build: aprovado, código 0; nova rota /conversations/[id]/convert compilada.
+- pnpm format: aprovado, código 0.
+
+Testes novos em conversation-conversion-database.test.ts, conversation-conversion-action.test.ts e conversation-conversion-ui.test.ts; mock de sessão atualizado em whatsapp-ui.test.ts. Cobrem criação/vínculo/auditoria, produto inativo/inexistente, campos inválidos, conversa fechada/ausente, repetição com dados diferentes, retorno do mesmo lead após fechamento, ingresso duplicado sem alteração, ausência de escrita direta, FK existente, ADMIN/AGENT/inativo/anon/service_role, grants/search_path, autorização antes de retornar um vínculo existente e RLS após atribuição, transferência e inativação.
+
+Falhas forçadas na criação de auditoria, atualização do vínculo e auditoria da conversão reverteram integralmente leads, lead_events e conversa; snapshots também preservaram contacts, messages e webhook_events. A aplicação de 010 sobre banco em 009 com dados inbound existentes preservou todos os registros. As outras suítes aplicaram 001→010 do zero; regressões das Fases 01/02A e HMAC continuaram passando.
+
+Ação de servidor testada com cliente/RPC simulados: validação antes do cliente, rejeição sem ADMIN, lista explícita de argumentos (não aceita lead_id, assignee ou actor_id), erro interno sanitizado e redirecionamento para o lead. Renderização estática testou dados preenchidos, produto ativo, indisponibilidade sem catálogo e ausência da ação para AGENT/conversa fechada/vinculada. ActionForm existente mantém botão desabilitado enquanto pending. Revisão React manteve autenticação no servidor, labels e estados de erro/carregamento sem dependências novas.
+
+Comparação com a tag 02C confirmou **migrations 001–009 intactas**. Nenhuma política RLS ou grant de tabela foi alterado; somente EXECUTE da nova RPC é concedido a authenticated, com require_admin no corpo. Varredura de arquivos candidatos ao Git contra os valores privados de .env.local: zero ocorrências. Inspeção dos 17 arquivos JavaScript de .next/static: nenhum valor privado nem referência às variáveis secretas administrativas. O CA público já versionado não contém chave privada.
+
+### Pendências de homologação 03A
+
+- A migration 010 está apenas local. Nenhum banco remoto foi conectado ou alterado nesta implementação; nenhum db push executado.
+- PGlite executa PostgreSQL embarcado em uma conexão: retry sequencial passou, mas contenção de duas sessões reais não foi comprovada. Homologar duas conversões simultâneas da mesma conversa: mesmo lead, um CREATED e um CONVERTED_FROM_CONVERSATION. O FOR UPDATE foi revisado, não classificado como teste concorrente aprovado.
+- Homologar Auth/PostgREST, navegação do formulário e persistência em staging depois de revisar/aplicar 010 e publicar o código. Os testes locais de UI usam renderização estática e não substituem um teste de navegador autenticado da nova tela.
+- Não converter automaticamente a conversa real de teste nem alterar a atribuição de Bruna. Meta, webhook, secrets, número oficial, envio e chatbot permaneceram sem alterações.
+
+Arquivos da Fase 03A: README.md, AGENTS.md, VALIDATION.md; migration 010; src/app/actions/conversations.ts; src/app/(panel)/conversations/[id]/page.tsx e convert/page.tsx; src/components/history-list.tsx; src/domain/types.ts e validation.ts; src/lib/database.types.ts; os três novos arquivos tests/conversation-conversion-*.test.ts e tests/whatsapp-ui.test.ts.
+
 ## Fase 02C homologada com tráfego real de teste — 06/11/2026
 
 Escopo concluído: número de TESTE da Meta → webhook de staging → pipeline autenticado/RPC Supabase → interface ADMIN, com negação de acesso à conversa sem lead para Bruna. Não representa homologação de número oficial, envio, chatbot ou publicação do app.

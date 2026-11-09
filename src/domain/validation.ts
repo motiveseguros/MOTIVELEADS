@@ -27,6 +27,7 @@ export const leadSchema = z.object({
   product_id: id,
   notes: z.string().max(5000),
 });
+export const conversionSchema = leadSchema.extend({ conversation_id: id });
 export const employeeSchema = z.object({
   name,
   email: z.email().max(254).toLowerCase(),

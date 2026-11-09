@@ -89,6 +89,7 @@ export const availabilityLabels: Record<Availability, string> = {
 };
 export const eventLabels: Record<string, string> = {
   CREATED: "Lead criado",
+  CONVERTED_FROM_CONVERSATION: "Conversa convertida em lead",
   ASSIGNED: "Lead atribuído",
   TRANSFERRED: "Lead transferido",
   STARTED: "Atendimento iniciado",

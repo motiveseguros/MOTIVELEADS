@@ -2,7 +2,7 @@
 
 ## Escopo
 
-Fases 01/02A e 02B homologadas pelo usuário no Supabase/staging. Fase 02C1: autenticar POSTs com HMAC-SHA256 sobre os bytes crus, sem conectar Meta, registrar número, enviar mensagens, implementar chatbot ou alterar regras de leads/RLS/migrations.
+Fases 01, 02A, 02B e 02C homologadas pelo usuário. Meta inbound homologada somente com número de teste. Fase 03A: ADMIN converte conversa OPEN em lead atomicamente; preservar distribuição, RLS, ingestão e mensagens. Sem número oficial, envio, chatbot ou coleta automática.
 
 ## Stack
 
@@ -50,7 +50,7 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 ## WhatsApp — Fase 02A
 
 - Contact não é Lead. Preservar requisitos e distribuição de leads; conversas podem não ter lead.
-- Não editar migrations 001–008. A correção de A01/A02 permanece na migration 008; F03 é corrigido exclusivamente pela 009. Criar novas migrations; nunca executar db push remoto automaticamente.
+- Não editar migrations 001–009. A correção de A01/A02 permanece na migration 008; F03 é corrigido exclusivamente pela 009. Criar novas migrations; nunca executar db push remoto automaticamente.
 - Ingestão passa por RPC atômica, somente service_role. IDs internos são resolvidos no banco, não aceitos do payload.
 - ADMIN lê todas as contas/contatos/conversas/mensagens; AGENT lê somente conversas e mensagens de leads atualmente atribuídos a ele.
 - webhook_events não recebe acesso de usuários; histórico não é editável/excluível pela aplicação.
@@ -107,3 +107,12 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - Callback de staging verificado e somente messages assinado (v27.0). Preservar GET verify token distinto de App Secret do POST. Não publicar app, registrar número oficial, enviar mensagens ou ampliar assinaturas automaticamente.
 - A correção administrativa autorizada do WABA foi específica para META TEST NUMBER, mantendo active=true; não tornar o provisionador permissivo para identidades divergentes.
 - Configuração de callback/assinatura do campo não comprova entrega inbound, persistência ou associação via subscribed_apps. Homologar isso separadamente, sem afirmar sucesso end-to-end antes de observar.
+
+## Fase 03A — Conversa → Lead
+
+- Migration 010 adiciona convert_conversation_to_lead. Não aplicar remotamente ou publicar a Fase 03A sem instrução; o marco phase-02c-homologated permanece anterior a essa implementação.
+- ADMIN ativo obrigatório na Server Action e na RPC, inclusive no caminho de retry. Cliente da sessão autenticada, nunca secret administrativa. AGENT não converte mesmo que tenha acesso à conversa.
+- Bloquear conversa FOR UPDATE antes de decidir/criar. Conversa OPEN sem lead cria via create_lead existente, vincula UUID retornado e registra evento de conversão na mesma transação. Preservar CREATED e FK; sem lead_id/responsável/ator arbitrário na entrada.
+- Primeiro sucesso prevalece. Repetição retorna lead existente sem alterar dados/histórico; não criar outro lead ou reabrir conversa. Nenhuma deduplicação global por telefone foi introduzida.
+- Dados editados no formulário ficam no lead. Não sobrescrever contato nem mensagens. Atribuição continua separada pelo fluxo da Fase 01, com acesso AGENT derivado da RLS existente.
+- Testar rollback nas três etapas, retry, autorização negativa, produto inválido, histórico e RLS após distribuição. Concorrência de conexões reais e UI/PostgREST permanecem pendências explícitas até homologação.

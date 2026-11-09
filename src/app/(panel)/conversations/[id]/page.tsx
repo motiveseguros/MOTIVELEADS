@@ -15,7 +15,7 @@ export default async function ConversationDetail({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ page?: string }>;
 }) {
-  await requireActor();
+  const actor = await requireActor();
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
   const page = pageNumber((await searchParams).page);
@@ -142,6 +142,15 @@ export default async function ConversationDetail({
                   <p className="muted text-xs mt-3">
                     Este contato ainda não possui uma oportunidade cadastrada.
                   </p>
+                  {actor.profile.role === "ADMIN" &&
+                    conversation.status === "OPEN" && (
+                      <Link
+                        className="text-link inline-block mt-4"
+                        href={"/conversations/" + id + "/convert"}
+                      >
+                        Converter em lead →
+                      </Link>
+                    )}
                 </>
               )}
             </div>

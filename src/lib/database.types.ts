@@ -51,6 +51,19 @@ export interface Database {
     };
     Functions: {
       ingest_whatsapp_events: Fn<{ p_events: Json }, Json>;
+      convert_conversation_to_lead: Fn<
+        {
+          p_conversation_id: string;
+          p_name: string;
+          p_phone: string;
+          p_email: string;
+          p_city: string;
+          p_state: string;
+          p_product_id: string;
+          p_notes: string;
+        },
+        string
+      >;
       create_lead: Fn<
         {
           p_name: string;

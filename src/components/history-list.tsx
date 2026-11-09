@@ -75,6 +75,15 @@ export function HistoryList({
                   Abrir lead · {event.lead_id.slice(0, 8)}
                 </Link>
               )}
+              {event.action === "CONVERTED_FROM_CONVERSATION" &&
+                typeof data.conversation_id === "string" && (
+                  <Link
+                    className="text-link"
+                    href={"/conversations/" + data.conversation_id}
+                  >
+                    Abrir conversa de origem →
+                  </Link>
+                )}
             </div>
           </li>
         );

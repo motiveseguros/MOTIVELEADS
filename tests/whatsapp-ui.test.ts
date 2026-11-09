@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { randomUUID } from "node:crypto";
 vi.mock("server-only", () => ({}));
 vi.mock("../src/lib/auth", () => ({
-  requireActor: vi.fn(async () => undefined),
+  requireActor: vi.fn(async () => ({ profile: { role: "ADMIN" } })),
 }));
 vi.mock("../src/lib/whatsapp/queries", () => ({
   listConversations: vi.fn(),

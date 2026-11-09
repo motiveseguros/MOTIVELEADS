@@ -1,14 +1,28 @@
-# MOTIVE LEADS — Fase 02C1: autenticação do webhook
+# MOTIVE LEADS — Fase 03A: Conversa → Lead
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
-Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02A acrescenta infraestrutura local de conversas; não há conexão real à Meta, envio, chatbot ou coleta automática.
+Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02C homologou o recebimento real do número de teste da Meta. A Fase 03A acrescenta conversão manual de conversa em lead; envio, chatbot e coleta automática continuam fora do escopo.
 
 ## Estado da entrega
 
-As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 foi publicada no staging em 05/11/2026, commit `748a049`, com autenticação HMAC dos POSTs. A Meta, o número oficial e o recebimento real ainda não foram conectados. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
+As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 foi publicada no staging em 05/11/2026, commit `748a049`, com autenticação HMAC dos POSTs. A Fase 02C foi homologada em 06/11/2026 com o número de teste da Meta, recebimento real e RLS ADMIN/AGENT. Marco publicado: `phase-02c-homologated`, commit `f9581eb`. O número oficial não foi conectado. A migration 010 foi aplicada remotamente com autorização em 09/11/2026; o histórico 001–010 está sincronizado. O código 03A está autorizado para publicação, ainda sem tag de homologação; falta homologar o novo fluxo em staging. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
+
+## Fase 03A — conversão manual e atômica
+
+Somente ADMIN ativo pode abrir uma conversa OPEN sem lead e selecionar **Converter em lead**. O formulário preenche nome, telefone, e-mail e localidade a partir do contato; o administrador pode revisar os dados e escolher um produto ativo e observações. Os dados revisados pertencem ao novo lead e não alteram o perfil do contato nem as mensagens.
+
+A Server Action usa o cliente Supabase da sessão, sem secret administrativa, e chama somente `convert_conversation_to_lead`. A migration `202611060010_conversation_to_lead.sql` adiciona essa RPC sem editar 001–009 ou alterar RLS/grants de tabelas. A função exige ADMIN ativo no banco, usa SECURITY DEFINER com search_path vazio e bloqueia a linha da conversa com FOR UPDATE. Não recebe lead_id, responsável ou autor fornecido pelo cliente.
+
+Dentro de uma única transação, a função chama a criação de lead existente (validação de produto/dados e evento CREATED), vincula o UUID retornado à conversa e registra CONVERTED_FROM_CONVERSATION com ator e conversation_id. Falha em qualquer etapa reverte lead, vínculo e eventos. A FK existente impede vínculo com lead inexistente. O histórico de mensagens e o pipeline de ingestão permanecem intactos.
+
+A primeira conversão concluída prevalece. Retry ou duplo clique retorna o lead já vinculado, sem sobrescrever campos nem gerar outros eventos, inclusive se os dados enviados forem diferentes ou a conversa tiver sido fechada depois. Uma conversa fechada ainda sem lead não pode ser convertida. A proteção vale por conversa; não é uma regra nova de deduplicação global por telefone/contato.
+
+Depois da conversão, a tela abre o lead NEW sem responsável. A atribuição/transferência usa o fluxo existente da Fase 01. AGENT só passa a ver a conversa quando o lead lhe for atribuído e perde acesso após transferência/inativação. O histórico do lead inclui link para a conversa de origem. Não há envio, bot, coleta automática ou vínculo manual com outro lead nesta fase.
+
+**Estado de implantação:** migration 010 aplicada remotamente com autorização em 09/11/2026; migrations 001–010 sincronizadas. Concorrência e rollback foram comprovados em PostgreSQL 17.11 nativo local, conforme AUDIT_PHASE03A.md. A navegação ADMIN/AGENT e Auth/PostgREST do fluxo 03A ainda precisam de homologação em staging após publicação. Nenhuma tag de homologação 03A foi criada.
 
 ## Staging público — Vercel
 
@@ -26,11 +40,11 @@ Somente estas variáveis foram cadastradas no ambiente **Production** do projeto
 | `WHATSAPP_WEBHOOK_VERIFY_TOKEN`        | Secret      |
 | `WHATSAPP_APP_SECRET`                  | Secret      |
 
-O verify token é um segredo próprio para o GET de challenge, gerado com 32 bytes aleatórios e mantido no `.env.local` ignorado pelo Git e como Secret na Vercel. Não é access token da Meta. O endpoint futuro é `https://motive-leads-staging.vercel.app/api/webhooks/whatsapp`; ainda não foi cadastrado na Meta.
+O verify token é um segredo próprio para o GET de challenge, gerado com 32 bytes aleatórios e mantido no `.env.local` ignorado pelo Git e como Secret na Vercel. Não é access token da Meta. O callback `https://motive-leads-staging.vercel.app/api/webhooks/whatsapp` está cadastrado na Meta para o app e WABA de teste, com o campo messages assinado.
 
 A secret permanece server-side e não pode ter prefixo `NEXT_PUBLIC_`. `WHATSAPP_HOMOLOGATION_DATABASE_URL` e `SUPABASE_DATABASE_CA_PATH` ficam exclusivamente no ambiente administrativo local. Não executar `vercel env pull` sobre `.env.local`, pois pode sobrescrever a configuração local e não recupera Secrets de Production. Preview e Development não receberam credenciais nesta configuração.
 
-A URL é pública, mas o painel exige autenticação Supabase. O staging publicado da Fase 02C1 exige HMAC antes de processar POSTs em `/api/webhooks/whatsapp`. Assinatura ausente/inválida retorna 403; App Secret ausente retorna 503. GET de challenge não habilita POST. O deploy não aplica migrations nem executa scripts de homologação. Não houve alteração de schema, RLS ou integração Meta. Consulte VALIDATION.md para verificações e limites.
+A URL é pública, mas o painel exige autenticação Supabase. O staging publicado da Fase 02C1 exige HMAC antes de processar POSTs em `/api/webhooks/whatsapp`. Assinatura ausente/inválida retorna 403; App Secret ausente retorna 503. GET de challenge não habilita POST. O deploy não aplica migrations nem executa scripts de homologação. A conexão Meta de teste foi homologada posteriormente na Fase 02C. Consulte VALIDATION.md para verificações e limites.
 
 ## Fase 02C1 — autenticação HMAC do POST
 
