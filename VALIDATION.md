@@ -1,5 +1,22 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 03A homologada em staging — 11/11/2026
+
+Código verificado: a50a62b (mesma árvore de aplicação de 6181b05), deployment Vercel READY publicado em 09/11/2026. Migration 010 já aplicada e histórico 001–010 sincronizado, conforme registro abaixo. Testes realizados pelo navegador com sessões reais de ADMIN, Bruna e Cida, usando o fluxo normal da aplicação, sem chamadas administrativas de escrita.
+
+- ADMIN converteu a conversa real de teste OPEN e sem lead para Consórcio. Foi criado um lead, vinculado à conversa, com dois eventos: criação e conversão, ambos atribuídos ao ADMIN autenticado.
+- Uma segunda aba, aberta antes da conversão, submeteu novamente o formulário após o primeiro sucesso. Retornou o mesmo lead; histórico continuou com dois eventos. A lista ADMIN passou de um registro preexistente para dois registros totais, sem segundo lead dessa conversão.
+- Antes da atribuição, Bruna autenticada viu zero conversas e recebeu “Registro não encontrado” na URL direta, mantendo a sessão válida.
+- ADMIN atribuiu pelo fluxo existente à Bruna disponível. Ela passou a ver a conversa, a mensagem original com texto/timestamp preservados e os três eventos do lead.
+- ADMIN transferiu para Cida, ativa e compatível, confirmando explicitamente o aviso OFFLINE. O histórico passou a quatro eventos: criação, conversão, atribuição e transferência. O mesmo lead ficou Distribuído e sob responsabilidade da Cida.
+- Após a transferência, Bruna voltou a ver zero conversas; URL direta retornou “Registro não encontrado” com sessão válida. Cida autenticada acessou a conversa, a mensagem original e os quatro eventos. ADMIN também manteve acesso após a transferência.
+
+Resultado: Fase 03A homologada para o fluxo de teste solicitado. A conversa permanece OPEN, com uma mensagem original e o mesmo lead. O lead de teste permanece atribuído à Cida. Nenhum atendimento foi iniciado, nenhuma mensagem enviada e nenhum dado de contato foi editado.
+
+Limites da evidência: esta rodada comprova UI/Auth/PostgREST/RLS com usuários reais. A consulta PostgreSQL administrativa somente leitura falhou por DNS (ENOTFOUND); portanto não foi produzida nova comparação de hashes de tabelas nem comprovação de atomicidade por falha forçada no remoto. Atomicidade e concorrência permanecem comprovadas pela auditoria local em PostgreSQL nativo abaixo, sem confundir com execução remota. Evidências operacionais e screenshots ficaram fora do Git, em work/phase03a-staging, sem copiar dados pessoais para a documentação.
+
+Nesta conclusão foram atualizados somente README.md e VALIDATION.md. Migrations, RLS, código funcional, Meta e secrets permaneceram intactos. A suíte anterior aprovada mantém 311 testes/14 arquivos; não foi reexecutada nesta rodada operacional/documental. Verificação documental: pnpm format:check. O marco phase-03a-homologated registra esta homologação e não autoriza automaticamente a Fase 03B.
+
 ## Aplicação remota autorizada da Fase 03A — 09/11/2026
 
 Após aprovação explícita do usuário, pnpm exec supabase db push --linked aplicou somente 202611060010_conversation_to_lead.sql, com código 0. A execução posterior de pnpm exec supabase migration list --linked confirmou as dez versões 001–010 iguais no local e no remoto. Nenhuma seed, role ou outra migration foi aplicada. Esta aplicação sucede o parecer histórico abaixo, que corretamente registrava a 010 ainda não aplicada na data de sua conclusão.
