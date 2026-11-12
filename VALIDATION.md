@@ -1,5 +1,31 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 03B2A — revisão local em 12/11/2026
+
+Base: phase-03b1-homologated (`e0cc6e7`). Migration nova `202611120012_whatsapp_outbound_outbox.sql`, exclusivamente local. Relatório de arquitetura, schemas, grants, RLS, locks, estados, retry, recuperação, limites e lista completa de arquivos: [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
+
+| Verificação       | Resultado                                                         |
+| ----------------- | ----------------------------------------------------------------- |
+| pnpm lint         | Código 0, sem erros ou avisos                                     |
+| pnpm typecheck    | Código 0, TypeScript strict                                       |
+| pnpm test         | Código 0; 439 testes em 20 arquivos (379 anteriores + 60 novos)   |
+| pnpm build        | Código 0; 16 rotas, sem rota nova de envio ou executor automático |
+| pnpm format:check | Código 0                                                          |
+
+35 testes novos de banco, 10 de worker, 6 de UI e 9 de segurança do harness local. Banco novo com 001–012 e upgrade 011→012 com seis drafts existentes exercitados. Ativar após o upgrade gera zero jobs; somente draft novo elegível cria job, e desativar/reativar não recupera backlog. Falhas em job/auditoria e na conclusão revertem toda a transação do inbound. Grants efetivos, ADMIN/AGENT/inativo, escrita direta negada, token/lease, backoff/limite e nenhuma message OUTBOUND por draft/job/aceitação fake foram verificados.
+
+PostgreSQL 17.11 nativo local: **13 cenários novos de concorrência/crash aprovados**, mais **7 cenários anteriores do intake aprovados** com 012 aplicada. Conexões TCP independentes, esperas por locks observadas, SKIP LOCKED comprovado com primeira transação ainda aberta, dois jobs processados em paralelo. Backend encerrado antes de dispatch recupera para QUEUED com backoff; depois de dispatch exige RECONCILIATION_REQUIRED. Zero mensagens OUTBOUND em todos os cenários. Sem deadlock permanente/timeout inesperado. Não se usa PGlite como prova dessas disputas.
+
+Benchmark local de duas conexões e 40 operações/cenário: uma conversa 329,4 operações/s (p95 33,2 ms); múltiplas conversas da mesma conta 364,0/s (p95 26,1 ms); múltiplos jobs com aceite fake 536,9/s (p95 5,9 ms). São medições curtas sem rede Meta/HTTP/TLS remoto; não representam capacidade do staging. Lock antigo por conta preservado.
+
+Integridade: migrations 001–011 comparadas por SHA-256 com e0cc6e7, onze idênticas. Segredos locais foram comparados sem exibir valores contra os arquivos alterados/novos; zero correspondências. Os 17 arquivos JS em .next/static não contêm esses valores ou nomes das variáveis privadas verificadas. .env.local não foi alterado/adicionado ao Git; nenhuma dependência nova ou credencial de envio.
+
+Publicação autorizada somente em phase-03b2a-review, com git.deploymentEnabled dessa branch false no vercel.json. Main/tag homologada continuam e0cc6e7. Nenhum db push ou acesso ao banco remoto nesta implementação, nenhum envio real, alteração Meta, configuração de projeto Vercel ou tag nova. Sem homologação remota de 012/Auth/PostgREST/UI: ela depende de revisão/autorização posterior.
+
+Limites explícitos: adapter real/evidência de provider/reconciliação ficam para 03B2B; jobs antigos permanecem retidos; ordem de mensagens entre transações e validade/ordem de prompts antes do envio real precisam de política própria. O worker é server-only, provider padrão DISABLED, FAKE somente em testes e sem cron/rota automática. Não há exactly-once externo.
+
+Resultados brutos locais fora do Git: work/phase03b2a/concurrency.json, benchmark.json e intake-regression.json. Cluster local encerrado após a execução; credencial temporária local descartada.
+
 ## Fase 03B1 homologada em staging — 12/11/2026
 
 Código funcional verificado: `1538857`, publicado por fast-forward na main após aprovação do usuário. O dry-run listou somente `202611110011_whatsapp_intake.sql`; o db push autorizado aplicou somente essa migration, sem seeds/roles adicionais. Ambos retornaram código 0. Migration list confirmou todas as versões 001–011 iguais no local e remoto. Deployment `dpl_7mjx9QUjGrnKqPqTTt9s2dwvV7LU` ficou READY e a URL pública do staging passou a apontar para ele.

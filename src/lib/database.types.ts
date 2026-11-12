@@ -1,4 +1,12 @@
 import type {
+  TransportMode,
+  JobStatus,
+  TransportFailure,
+  TransportConfig,
+  OutboundJob,
+  OutboundEvent,
+} from "@/domain/whatsapp-outbound";
+import type {
   ConversationInbox,
   WhatsAppAccount,
   Contact,
@@ -38,6 +46,9 @@ type Fn<A, R> = { Args: A; Returns: R };
 export interface Database {
   public: {
     Tables: {
+      whatsapp_outbound_transport_config: Table<TransportConfig>;
+      whatsapp_outbound_jobs: Table<OutboundJob>;
+      whatsapp_outbound_events: Table<OutboundEvent>;
       whatsapp_intake_sessions: Table<IntakeSession>;
       whatsapp_intake_turns: Table<IntakeTurn>;
       whatsapp_outbound_drafts: Table<OutboundDraft>;
@@ -60,6 +71,29 @@ export interface Database {
       };
     };
     Functions: {
+      set_whatsapp_outbound_transport: Fn<
+        { p_account_id: string; p_mode: TransportMode },
+        TransportConfig
+      >;
+      cancel_whatsapp_outbound_job: Fn<{ p_job_id: string }, undefined>;
+      claim_whatsapp_outbound_job: Fn<{ p_account_id: string }, Json>;
+      begin_whatsapp_outbound_dispatch: Fn<
+        { p_job_id: string; p_claim_token: string },
+        Json
+      >;
+      accept_fake_whatsapp_outbound: Fn<
+        { p_job_id: string; p_claim_token: string; p_receipt: string },
+        undefined
+      >;
+      fail_whatsapp_outbound_job: Fn<
+        {
+          p_job_id: string;
+          p_claim_token: string;
+          p_failure: TransportFailure;
+        },
+        undefined
+      >;
+      recover_whatsapp_outbound_job: Fn<{ p_job_id: string }, JobStatus>;
       ingest_whatsapp_events: Fn<{ p_events: Json }, Json>;
       convert_conversation_to_lead: Fn<
         {
@@ -133,6 +167,9 @@ export interface Database {
       >;
     };
     Enums: {
+      whatsapp_transport_mode: TransportMode;
+      whatsapp_job_status: JobStatus;
+      whatsapp_transport_failure: TransportFailure;
       whatsapp_intake_status: IntakeStatus;
       whatsapp_intake_step: IntakeStep;
       conversation_status: ConversationStatus;

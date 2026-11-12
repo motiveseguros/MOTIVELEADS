@@ -1,3 +1,7 @@
+import { outboundDetail } from "../src/lib/whatsapp/outbound-queries";
+vi.mock("../src/lib/whatsapp/outbound-queries", () => ({
+  outboundDetail: vi.fn(async () => ({ config: null, job: null })),
+}));
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -168,6 +172,8 @@ describe("03B1: painel ADMIN e transporte desligado", () => {
       }),
     );
     expect(intakeDetail).not.toHaveBeenCalled();
+    expect(outboundDetail).not.toHaveBeenCalled();
+    expect(html).not.toContain("Transporte");
     expect(html).not.toContain("Coleta automática");
   });
   it("histórico automático identifica sistema sem fingir ADMIN", () => {

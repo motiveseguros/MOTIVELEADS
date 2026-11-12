@@ -19,7 +19,7 @@ Next.js App Router nativo, TypeScript strict, Tailwind CSS, shadcn/ui, Supabase 
 - Manter database.types.ts sincronizado com migrations.
 - SECURITY DEFINER precisa de search_path vazio, objetos qualificados, grants mínimos e autorização explícita.
 - Server Actions verificam usuário/role no servidor e validam entradas; consultas comuns preservam RLS.
-- SUPABASE_SECRET_KEY apenas no módulo server-only administrativo, bootstrap e persistência autenticada de webhooks. A UI de conversas usa sessão do usuário e RLS. Nunca prefixar a secret key com NEXT_PUBLIC.
+- SUPABASE_SECRET_KEY apenas no módulo server-only administrativo, bootstrap, persistência autenticada de webhooks e adapter técnico server-only da outbox (sem rota/worker automático). A UI de conversas usa sessão do usuário e RLS. Nunca prefixar a secret key com NEXT_PUBLIC.
 - Nunca criar bypass de autenticação, senha fixa, modo demo disfarçado ou dados de cliente em testes.
 
 ## Permissões
@@ -119,7 +119,7 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 
 ## Fase 03B1 — coleta sem transporte
 
-- Não editar migrations 001–011: a 011 foi aplicada remotamente com autorização e homologada em 12/11/2026. Código 1538857 publicado na main; marco phase-03b1-homologated. O bloqueio de Preview continua exclusivo de phase-03b1-review. Novas migrations/deploys e implementação da 03B2 exigem autorização própria.
+- Não editar migrations 001–011: a 011 foi aplicada remotamente com autorização e homologada em 12/11/2026. Código 1538857 publicado na main; marco phase-03b1-homologated. O bloqueio de Preview abrange phase-03b1-review e phase-03b2a-review. Novas migrations/deploys e implementação da 03B2 exigem autorização própria.
 - Estado/validação/idempotência/conclusão residem no banco. Somente novos inbounds chegam ao intake, na mesma transação de ingestão. Duplicata não reaplica turno, inclusive de mensagens anteriores à migration.
 - Primeira mensagem abre NAME e gera pergunta; respostas seguintes avançam NAME → PRODUCT → LOCATION → EMAIL → SUPPLEMENTAL → COMPLETE. Produtos ativos resolvidos por nomes/aliases auditáveis, nunca UUID fixo.
 - Telefone vem do contato/wa_id; nunca perguntar, inventar ou distribuir automaticamente. COMPLETE cria NEW sem responsável; telefone ausente exige revisão sem conclusão.
@@ -128,3 +128,15 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - RLS nova: ADMIN lê sessão/drafts, AGENT recebe dados comerciais pelo lead/conversa atribuídos; nenhuma escrita direta da API.
 - Preservar A01/A02/F03 e a ordem de preenchimento de display_name. Ordenar por timestamp/posição somente o processamento de intake dos UUIDs realmente novos, depois da ingestão original.
 - Concorrência nativa é opt-in, exclusivamente em PostgreSQL local vazio e isolado; nunca usar conexão administrativa remota para esses testes.
+
+## Fase 03B2A — outbox em revisão, sem envio
+
+- Autorizada implementação e publicação somente em phase-03b2a-review, com Preview dessa branch desabilitado em vercel.json. Não aplicar 012 remotamente, alterar main, criar tag, modificar configuração Vercel/Meta ou adicionar credencial de envio.
+- Não editar 001–011. A 012 adiciona config/jobs/events e trigger INSERT-only de draft; não reescrever ingestão nem procurar drafts para backfill. Config ausente é DISABLED. Cada DISABLED → LIVE grava nova fronteira por conta e generation; repetição LIVE preserva a fronteira.
+- Draft não é job e job não é mensagem enviada. UNIQUE draft_id; apenas novo draft dentro da transação do intake pode enfileirar. Nunca reenfileirar histórico da 03B1 ou do período desligado. Reativação não retoma jobs de geração anterior.
+- Ordem de locks: conta → config → job; ativação/ingestão usam conta FOR UPDATE, claim/begin usam FOR SHARE e job FOR UPDATE SKIP LOCKED no claim. Não mudar locking legado sem medição.
+- Ativação/cancelamento exigem ADMIN ativo/auth.uid no SQL. RPCs técnicas exclusivas de service_role; nenhuma escrita direta de API. ADMIN lê diagnóstico por cliente da sessão/RLS; AGENT não acessa config/jobs/events.
+- Runtime somente DISABLED. FAKE restrito a NODE_ENV=test e injetado nos testes. Aceitação fake só no job/auditoria, nunca messages/wamid. Nenhum endpoint, cron ou chamada Cloud API nesta etapa.
+- Claim tem token, lease de dois minutos e limite de cinco tentativas. Begin confirmado precede qualquer provider; não repetir begin. Falha conhecida não aceita pode ter retry limitado; resultado incerto exige RECONCILIATION_REQUIRED. Nunca reencaminhar cegamente tentativa com dispatch_started_at após crash.
+- Desativação impede novos enqueue/claims/begin, mas não desfaz tentativa já iniciada. Recuperação é explícita, sem reaper; jobs antigos ficam retidos até decisão administrativa. Reconciliação externa e mensagem OUTBOUND real pertencem à 03B2B.
+- Preservar testes de fronteira/replay, rollback, fencing, privilégios e regressão. Conflitos reais exigem PostgreSQL nativo local com conexões independentes; PGlite não prova concorrência. Testes/benchmark nunca carregam credenciais remotas.

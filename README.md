@@ -1,4 +1,4 @@
-# MOTIVE LEADS — Fase 03B1: coleta WhatsApp sem envio
+# MOTIVE LEADS — Fase 03B2A: outbox em revisão, sem envio
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
@@ -6,11 +6,38 @@ Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, compon
 
 ## Estado da entrega
 
+**03B2A somente em revisão local/branch `phase-03b2a-review`:** migration 012 cria ativação por conta, outbox, claims, retries e recuperação. Não aplicada ao Supabase; main/staging continuam no marco `phase-03b1-homologated` (`e0cc6e7`). Preview dessa branch desabilitado no repositório. Sem credencial de envio, chamadas à Meta ou mensagem real. Relatório completo em [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
+
 **Fase 03B1 homologada em staging em 12/11/2026:** NAME → COMPLETE, um lead inicialmente NEW/sem responsável, seis inbounds preservados, seis drafts não enviados, RLS ADMIN/AGENT e atribuição/transferência verificadas. Migration 011 remota e código funcional `1538857`. Outbound permanece desabilitado.
 
 As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 foi publicada no staging em 05/11/2026, commit `748a049`, com autenticação HMAC dos POSTs. A Fase 02C foi homologada em 06/11/2026 com o número de teste da Meta, recebimento real e RLS ADMIN/AGENT. Marco publicado: `phase-02c-homologated`, commit `f9581eb`. O número oficial não foi conectado. A migration 010 foi aplicada remotamente com autorização em 09/11/2026; o histórico 001–010 está sincronizado. A Fase 03A foi homologada no staging em 11/11/2026: conversão, repetição protegida, histórico, mensagens preservadas e RLS após atribuição/transferência. Marco: `phase-03a-homologated`. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
+
+## Fase 03B2A — autorização de fila, sem transporte real
+
+A migration `202611120012_whatsapp_outbound_outbox.sql` adiciona três tabelas: configuração por conta, jobs únicos por draft e auditoria do transporte. Não modifica migrations 001–011, funções de ingestão, HMAC, RLS anterior ou regras comerciais. Um trigger AFTER INSERT no draft faz a decisão de enqueue dentro da mesma transação do intake.
+
+A configuração ausente equivale a DISABLED. A RPC administrativa `set_whatsapp_outbound_transport(account_id, mode)` exige ADMIN ativo e deriva o autor de auth.uid(). Não há toggle no browser, endpoint ou ativação automática. DISABLED → LIVE bloqueia a conta, grava o maior sequence de draft daquela conta, incrementa generation e audita a fronteira. LIVE → LIVE é idempotente. Ativar nunca cria jobs; somente a inserção de um draft novo, com sequence maior que a fronteira e modo LIVE, pode criar seu job. Os seis drafts históricos da 03B1 e os drafts do período desligado permanecem fora da fila.
+
+Desativar impede enqueue, claim e início de dispatch futuros. Jobs anteriores permanecem para diagnóstico. Reativar cria outra geração e não retoma automaticamente jobs QUEUED de gerações antigas; somente cancelamento administrativo explícito de QUEUED/FAILED está disponível. Uma tentativa cujo início já foi confirmado no banco não pode ter seu possível efeito externo desfeito pela desativação.
+
+O worker server-only executa no máximo uma tentativa por chamada. Seu provider padrão DISABLED retorna antes de claim/rede. FAKE só é aceito sob NODE_ENV=test, com implementação injetada pelos testes. Não há worker em execução, cron, fila externa, rota de envio ou access token. A aceitação FAKE produz recibo `fake:<UUID>` somente no job/auditoria, nunca wamid ou linha em messages. A 03B2B precisará implementar separadamente a transação de evidência real do provider + message OUTBOUND; a RPC fake não é essa integração.
+
+Claims usam FOR UPDATE SKIP LOCKED, lease de dois minutos e token novo por tentativa. O marcador de início é confirmado antes de chamar provider e não pode ser reutilizado. Falhas comprovadamente não aceitas usam backoff de 30/60/120/240 segundos e no máximo cinco claims; recusa permanente vira FAILED. Resultado de rede incerto ou exceção desconhecida vira RECONCILIATION_REQUIRED. Recuperação explícita de lease expirada só reencaminha quando o início do dispatch ainda não ocorreu; depois desse marco exige reconciliação. Efeito externo e commit PostgreSQL não constituem uma transação única; não há promessa de exactly-once externo.
+
+ADMIN possui diagnóstico somente leitura na conversa (modo, último job, tentativas e categoria de erro). AGENT não consulta nem visualiza esse painel e a RLS impede leitura das três tabelas mesmo se ele for o responsável comercial. Nenhuma role da API escreve diretamente nas tabelas. RPCs técnicas são exclusivas de service_role; ativação/cancelamento usam authenticated com guarda ADMIN no SQL. Não foram adicionadas variáveis de aplicação.
+
+### Testes nativos e benchmark locais
+
+Além de `pnpm test`, os comandos opt-in abaixo exigem `OUTBOUND_TEST_DATABASE_URL` apontando para PostgreSQL **local, vazio e descartável**, com role proprietária capaz de criar roles/schemas. O harness só aceita loopback, porta explícita >=1024, nome `motive_outbound_test_<sufixo>` e nenhum parâmetro extra na URL. Não lê .env.local. Use um banco novo para cada comando; eles aplicam 001–012 e preservam fixtures locais para inspeção.
+
+```sh
+pnpm test:outbound:concurrency
+pnpm benchmark:outbound
+```
+
+Nunca forneça a conexão administrativa do Supabase a esses testes. O benchmark é uma medição curta de duas conexões locais, não previsão de capacidade do staging. Resultados, locks, grants, política de recuperação e pendências estão no relatório da revisão.
 
 ## Fase 03A — conversão manual e atômica
 

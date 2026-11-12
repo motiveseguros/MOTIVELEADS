@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
-      "phase-03b1-review": false
+      "phase-03b1-review": false,
+      "phase-03b2a-review": false
     }
   }
 }

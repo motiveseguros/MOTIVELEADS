@@ -1,3 +1,6 @@
+vi.mock("../src/lib/whatsapp/outbound-queries", () => ({
+  outboundDetail: vi.fn(async () => ({ config: null, job: null })),
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

@@ -123,6 +123,12 @@ beforeAll(async () => {
   expect(
     (await db.query("select * from whatsapp_intake_sessions")).rows,
   ).toHaveLength(0);
+  await db.exec(
+    await readFile(
+      "supabase/migrations/202611120012_whatsapp_outbound_outbox.sql",
+      "utf8",
+    ),
+  );
   product = (
     await db.query<{ id: string }>(
       "select id from products where name='Consórcio'",

@@ -1,3 +1,5 @@
+import { outboundDetail } from "@/lib/whatsapp/outbound-queries";
+import { WhatsAppOutboundPanel } from "@/components/whatsapp-outbound-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -24,7 +26,13 @@ export default async function ConversationDetail({
   const detail = await conversationDetail(id, page);
   if (!detail) notFound();
   const { conversation, contact, messages, total } = detail;
-  const intake = actor.profile.role === "ADMIN" ? await intakeDetail(id) : null;
+  const [intake, outbound] =
+    actor.profile.role === "ADMIN"
+      ? await Promise.all([
+          intakeDetail(id),
+          outboundDetail(id, conversation.whatsapp_account_id),
+        ])
+      : [null, null];
   return (
     <>
       <PageHeader
@@ -96,6 +104,7 @@ export default async function ConversationDetail({
           <Pagination page={page} total={total} base={"/conversations/" + id} />
         </section>
         <aside className="space-y-6">
+          {outbound && <WhatsAppOutboundPanel {...outbound} />}
           {intake && (
             <WhatsAppIntakePanel {...intake} leadId={conversation.lead_id} />
           )}

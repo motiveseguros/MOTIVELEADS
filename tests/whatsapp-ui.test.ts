@@ -1,3 +1,6 @@
+vi.mock("../src/lib/whatsapp/outbound-queries", () => ({
+  outboundDetail: vi.fn(async () => ({ config: null, job: null })),
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { randomUUID } from "node:crypto";
