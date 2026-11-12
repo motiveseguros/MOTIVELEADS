@@ -75,7 +75,10 @@ export function HistoryList({
                   Abrir lead · {event.lead_id.slice(0, 8)}
                 </Link>
               )}
-              {event.action === "CONVERTED_FROM_CONVERSATION" &&
+              {[
+                "CONVERTED_FROM_CONVERSATION",
+                "CONVERTED_FROM_WHATSAPP_INTAKE",
+              ].includes(event.action) &&
                 typeof data.conversation_id === "string" && (
                   <Link
                     className="text-link"

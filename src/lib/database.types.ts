@@ -11,6 +11,13 @@ import type {
 } from "@/domain/whatsapp";
 import type { Json } from "@/domain/types";
 import type {
+  IntakeSession,
+  IntakeTurn,
+  OutboundDraft,
+  IntakeStatus,
+  IntakeStep,
+} from "@/domain/whatsapp-intake";
+import type {
   Profile,
   Employee,
   Product,
@@ -31,6 +38,9 @@ type Fn<A, R> = { Args: A; Returns: R };
 export interface Database {
   public: {
     Tables: {
+      whatsapp_intake_sessions: Table<IntakeSession>;
+      whatsapp_intake_turns: Table<IntakeTurn>;
+      whatsapp_outbound_drafts: Table<OutboundDraft>;
       whatsapp_accounts: Table<WhatsAppAccount>;
       contacts: Table<Contact>;
       conversations: Table<Conversation>;
@@ -123,6 +133,8 @@ export interface Database {
       >;
     };
     Enums: {
+      whatsapp_intake_status: IntakeStatus;
+      whatsapp_intake_step: IntakeStep;
       conversation_status: ConversationStatus;
       message_direction: MessageDirection;
       message_status: MessageStatus;

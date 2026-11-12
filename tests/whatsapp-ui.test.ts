@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { randomUUID } from "node:crypto";
 vi.mock("server-only", () => ({}));
+vi.mock("../src/lib/whatsapp/intake", () => ({
+  intakeDetail: vi.fn(async () => null),
+}));
 vi.mock("../src/lib/auth", () => ({
   requireActor: vi.fn(async () => ({ profile: { role: "ADMIN" } })),
 }));

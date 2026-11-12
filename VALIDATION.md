@@ -1,5 +1,95 @@
 # Verificação — MOTIVE LEADS
 
+## Publicação para revisão — 12/11/2026
+
+Publicação autorizada exclusivamente na branch `phase-03b1-review`, com base em `0309fe5`, sem alteração de main, tag, deploy ou aplicação da migration 011. Aos 21 arquivos da implementação abaixo foi acrescentado somente `vercel.json`, com `git.deploymentEnabled["phase-03b1-review"] = false`, para impedir Preview automático dessa branch. Esse bloqueio não desabilita outras branches. A primeira mensagem continua apenas iniciando NAME e gerando a pergunta; drafts históricos não constituem fila de envio. A futura 03B2 exigirá um marco explícito para habilitar transporte, sem disparar retrospectivamente os drafts da 03B1.
+
+## Fase 03B1 — implementação e validação locais em 12/11/2026
+
+Esta seção registra a implementação local, ainda sem aplicação remota da migration 011 ou publicação do código. Não equivale à homologação em staging. As fases anteriores permanecem registradas abaixo.
+
+### Modelo e segurança
+
+Migration nova: `202611110011_whatsapp_intake.sql`. As migrations 001–010 foram comparadas por SHA-256 com HEAD: dez arquivos idênticos. A 011 cria sessions (uma por conversation), turns (uma por mensagem processada) e outbound drafts (uma resposta preparada por turno, com sequência estável). Status: ACTIVE, COMPLETE e CANCELLED; etapas: NAME → PRODUCT → LOCATION → EMAIL → SUPPLEMENTAL → COMPLETE. CANCELLED fica reservado, sem operação de cancelamento nesta entrega.
+
+A primeira mensagem elegível inicia NAME e prepara a apresentação/pergunta; não é interpretada como nome. Somente mensagens inbound text inéditas, de conversation OPEN e sem lead, alimentam a coleta. Duplicatas históricas não iniciam coleta retroativa. Nome, produto ativo, localidade, e-mail e informações suplementares são validados deterministicamente. Telefone nunca é perguntado: vem do contato/wa_id. Ausência de telefone utilizável bloqueia a conclusão para revisão manual. O resultado automático é um lead NEW, sem responsável; o produto é resolvido no catálogo, sem UUID fixo.
+
+Funções privadas: intake_trim, intake_key, intake_product, intake_prompt, process_whatsapp_intake e complete_whatsapp_intake. Todas possuem search_path vazio e EXECUTE revogado de PUBLIC, anon, authenticated e service_role. A única entrada técnica permanece ingest_whatsapp_events, executável por service_role, com o contrato público preservado. As operações internas usam mensagens já persistidas; não aceitam actor/profile do payload. A RPC manual ADMIN-only permanece inalterada.
+
+RLS nas três tabelas novas. authenticated recebe somente SELECT em sessions e drafts, condicionado por policy a ADMIN ativo; turns não tem leitura pela API. Nenhum papel de API recebe escrita direta, nem acesso à sequence. AGENT continua vendo apenas os dados comerciais autorizados de lead/conversation, sem leitura das tabelas de coleta. A UI ADMIN é somente leitura e escapa texto externo.
+
+A auditoria automática registra creation_source/source WHATSAPP_INTAKE e actor_id NULL nos dois eventos técnicos (CREATED e CONVERTED_FROM_WHATSAPP_INTAKE), incluindo referência à conversation/session na conversão. A constraint continua exigindo autor nas demais ações; não há ADMIN simulado. Criação do lead, vínculo, conclusão da sessão, histórico e draft final integram a transação de ingestão.
+
+### Verificações executadas
+
+| Comando           | Resultado                                     |
+| ----------------- | --------------------------------------------- |
+| pnpm lint         | Aprovado, código 0                            |
+| pnpm typecheck    | Aprovado, código 0                            |
+| pnpm test         | 379 testes aprovados em 16 arquivos, código 0 |
+| pnpm build        | Aprovado, código 0                            |
+| pnpm format:check | Aprovado, código 0                            |
+
+Foram acrescentados 68 testes: 61 de banco e 7 de UI/transport. Os 311 testes anteriores permanecem aprovados, incluindo Fases 01–03A, A01/A02, normalização de whitespace, HMAC, limites do webhook e RLS. Os ajustes nos testes anteriores limitam-se a aplicar a nova migration no estado final, limpar dependências via CASCADE e prover mock da consulta de intake.
+
+A suíte cobre upgrade 010→011 sem backfill, duplicatas, respostas válidas/inválidas, aliases e ambiguidade de produtos, produto inativado antes da conclusão, telefone derivado/ausente, ordenação do lote, campos pendentes, preservação das mensagens, conclusão única, disputa com conversão manual, actor forjado, grants/search_path e RLS após atribuição/transferência. Falhas forçadas na criação do lead, vínculo, eventos CREATED/conversão, conclusão da sessão e draft revertem integralmente o inbound e o webhook_event; falha no primeiro draft também não deixa contact/conversation/message parciais.
+
+### Concorrência em PostgreSQL nativo
+
+Script separado: `pnpm test:intake:concurrency`, usando INTAKE_TEST_DATABASE_URL. Recusa destinos externos: exige loopback, porta explícita não privilegiada, banco vazio com prefixo motive_intake_test_, sem parâmetros de URL. Não carrega .env.local. Executado em PostgreSQL 17.11 nativo, cluster descartável local isolado, com conexões independentes e observação de espera por lock. Sete cenários aprovados além dos 379 testes:
+
+| Cenário                                | Resultado                                                                               |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Avanço simultâneo NAME/PRODUCT         | Serializado; etapa final LOCATION                                                       |
+| Mesma mensagem final simultânea        | 1 lead, 2 eventos, zero órfãos, 1 sessão COMPLETE; segunda chamada retorna duplicates=1 |
+| Mensagens finais distintas simultâneas | 1 lead, 2 eventos, zero órfãos; ambas persistidas, sem segunda conclusão                |
+| Primeira conclusão sofre rollback      | Segunda conclui; 1 lead, 2 eventos, zero órfãos                                         |
+| Duas conversations distintas           | 2 leads, 4 eventos, zero órfãos, 2 sessões COMPLETE                                     |
+| Automática vence disputa com manual    | 1 lead, 2 eventos; sessão COMPLETE                                                      |
+| Manual vence disputa com automática    | 1 lead, 2 eventos; sessão anterior preservada, sem processamento adicional              |
+
+Também foram verificadas leitura simultânea (vínculo não aparece antes do commit) e repetição após commit. Nenhum deadlock permanente ou timeout inesperado. O lock da conversation ocorre antes da criação do lead; contas são bloqueadas em ordem estável antes da ingestão. A conclusão manual e a automática respeitam o mesmo lock da conversation.
+
+### Arquivos desta entrega
+
+Novos:
+
+- supabase/migrations/202611110011_whatsapp_intake.sql
+- src/domain/whatsapp-intake.ts
+- src/lib/whatsapp/intake.ts
+- src/lib/whatsapp/intake-transport.ts
+- src/components/whatsapp-intake-panel.tsx
+- tests/whatsapp-intake-database.test.ts
+- tests/whatsapp-intake-ui.test.ts
+- tests/whatsapp-intake-concurrency.mjs
+
+Alterados:
+
+- README.md
+- AGENTS.md
+- VALIDATION.md
+- package.json
+- src/app/(panel)/conversations/[id]/page.tsx
+- src/components/history-list.tsx
+- src/domain/types.ts
+- src/lib/database.types.ts
+- tests/conversation-conversion-database.test.ts
+- tests/conversation-conversion-ui.test.ts
+- tests/whatsapp-database.test.ts
+- tests/whatsapp-homologation.test.mjs
+- tests/whatsapp-ui.test.ts
+
+### Limites e pendências
+
+- Transporte desabilitado: os drafts nunca são enviados, nem registrados como SENT. Não há chamada Graph API, worker de envio ou access token novo. A coleta pode ser exercitada com entradas simuladas; o contato real não recebe as perguntas nesta fase. A 03B2 não deve enviar automaticamente o backlog desses drafts.
+- A ordem interna de deduplicação/metadados A01/A02 permanece preservada. Depois da ingestão, as mensagens inéditas de um mesmo lote são processadas por provider_timestamp e posição original no lote. Entre entregas distintas vale a ordem de aquisição dos locks; não há reordenação global de eventos atrasados.
+- O lock por conta simplifica consistência, mas serializa ingestões dessa conta. Vazão/carga precisam de avaliação antes de ampliar tráfego. O teste local de conversations distintas não promete execução paralela por conta.
+- E-mail tem validação sintática conservadora, sem verificação de existência. Falta de telefone utilizável requer revisão manual. Conversão manual interrompe a utilização da coleta anterior sem reescrever sua sessão; a UI informa a interrupção.
+- Auth/PostgREST/UI e operação com tráfego real da 03B1 ainda dependem de homologação em staging após revisão e autorização de aplicação. PostgreSQL local comprova concorrência SQL; não substitui essa homologação.
+- Nenhum db push, migration remota, publicação Git/Vercel ou alteração na Meta foi realizado nesta entrega. Os clusters locais de concorrência foram encerrados. Segredos de .env.local não apareceram nos arquivos candidatos ao Git nem nos 18 arquivos do browser bundle verificados. Valores não foram impressos; nenhuma credencial foi adicionada.
+
+Evidências locais fora do Git: work/phase03b1, incluindo logs dos comandos, native-concurrency.log, migration-integrity.json e security-check.json.
+
 ## Fase 03A homologada em staging — 11/11/2026
 
 Código verificado: a50a62b (mesma árvore de aplicação de 6181b05), deployment Vercel READY publicado em 09/11/2026. Migration 010 já aplicada e histórico 001–010 sincronizado, conforme registro abaixo. Testes realizados pelo navegador com sessões reais de ADMIN, Bruna e Cida, usando o fluxo normal da aplicação, sem chamadas administrativas de escrita.

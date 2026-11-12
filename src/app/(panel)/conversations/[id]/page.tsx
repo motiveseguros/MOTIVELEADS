@@ -8,6 +8,8 @@ import { messageStatusLabels } from "@/domain/whatsapp";
 import { dateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
+import { intakeDetail } from "@/lib/whatsapp/intake";
+import { WhatsAppIntakePanel } from "@/components/whatsapp-intake-panel";
 export default async function ConversationDetail({
   params,
   searchParams,
@@ -22,6 +24,7 @@ export default async function ConversationDetail({
   const detail = await conversationDetail(id, page);
   if (!detail) notFound();
   const { conversation, contact, messages, total } = detail;
+  const intake = actor.profile.role === "ADMIN" ? await intakeDetail(id) : null;
   return (
     <>
       <PageHeader
@@ -93,6 +96,9 @@ export default async function ConversationDetail({
           <Pagination page={page} total={total} base={"/conversations/" + id} />
         </section>
         <aside className="space-y-6">
+          {intake && (
+            <WhatsAppIntakePanel {...intake} leadId={conversation.lead_id} />
+          )}
           <section className="panel">
             <div className="panel-heading">
               <h2>Informações do contato</h2>

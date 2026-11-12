@@ -279,7 +279,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.exec(
-    "truncate messages,conversations,contacts,webhook_events,whatsapp_accounts",
+    "truncate messages,conversations,contacts,webhook_events,whatsapp_accounts cascade",
   );
 });
 afterAll(async () => {

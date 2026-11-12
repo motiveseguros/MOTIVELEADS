@@ -24,6 +24,43 @@ Depois da conversão, a tela abre o lead NEW sem responsável. A atribuição/tr
 
 **Estado de implantação:** migration 010 aplicada remotamente com autorização em 09/11/2026; migrations 001–010 sincronizadas. Concorrência e rollback foram comprovados em PostgreSQL 17.11 nativo local, conforme AUDIT_PHASE03A.md. Navegação ADMIN/AGENT e Auth/PostgREST do fluxo 03A homologados em staging em 11/11/2026, no código `a50a62b`: uma conversão, repetição retornando o mesmo lead, atribuição à Bruna e transferência para Cida. A mensagem original permaneceu acessível somente ao ADMIN e à responsável atual. Consulte VALIDATION.md para evidências e limites.
 
+## Fase 03B1 — coleta determinística local, sem envio
+
+Implementação local para revisão: migration `202611110011_whatsapp_intake.sql`. Não aplicada no Supabase e código não publicado. A 03A homologada permanece o marco remoto. Esta etapa não conecta número oficial, não envia mensagens, não usa IA/LLM e não distribui leads automaticamente.
+
+O primeiro inbound novo de uma conversa OPEN sem lead cria uma sessão ACTIVE/NAME e um rascunho com a pergunta de nome; a saudação inicial não é usada como nome. As mensagens seguintes respondem à etapa atual. O fluxo é NAME → PRODUCT → LOCATION → EMAIL → SUPPLEMENTAL → COMPLETE. Resposta inválida mantém a etapa e gera correção. CANCELLED é um estado reservado, sem operação de cancelamento nesta fase.
+
+- Nome: aparar Unicode White_Space nas bordas; 2–120 caracteres; rejeitar controles internos.
+- Produto: resolver UUID da tabela products ativa. Normalização determinística de caixa, acentos e espaços. Aliases: seguro/seguro auto/seguro de carro/automóvel → nome de catálogo Seguro Auto; consorcio/consórcio/consorcio auto → Consórcio. Nenhum UUID é fixado. Catálogo sem correspondência ativa ou com nomes normalizados ambíguos não avança.
+- Localidade: cidade com 2–120 caracteres e UF brasileira válida; separadores /, hífen ou vírgula. Cidade e UF são armazenadas separadamente.
+- E-mail: 3–254 caracteres, parte local até 64, formato ASCII conservador com domínio e sufixo; espaços/dots inválidos não avançam. Não há verificação de existência da caixa postal.
+- Informações adicionais: até 5000 caracteres, aparando somente bordas. não/nao/nenhuma/nada normalizados viram NULL na sessão e string vazia nas notes do lead, conforme contrato existente.
+- Telefone nunca é perguntado: usar contacts.phone válido ou derivar de wa_id numérico. Sem ambos, manter ACTIVE/SUPPLEMENTAL, registrar rascunho de revisão pela equipe e não criar lead. Nenhum telefone é inventado.
+
+Na conclusão, a mesma transação persiste o último inbound, marca COMPLETE, cria exatamente um lead NEW sem assigned_employee_id/assigned_at, vincula a conversa e grava CREATED + CONVERTED_FROM_WHATSAPP_INTAKE. O produto é revalidado com lock; se ficou inativo, retorna a PRODUCT com correção. Mensagens e dados anteriores do contato são preservados pelas regras da ingestão existente. O produto do lead é o escolhido no catálogo; no exemplo Consórcio, o resultado é NEW / Consórcio / sem responsável. A distribuição permanece manual pelo ADMIN.
+
+### Persistência, autorização e concorrência da coleta
+
+whatsapp_intake_sessions tem conversation_id UNIQUE. whatsapp_intake_turns registra uma única aplicação por UUID de mensagem persistida. whatsapp_outbound_drafts guarda respostas DRAFT, ligadas ao turno e ordenadas por sequência, fora de messages e sem simular SENT. Nenhum replay de histórico ou backfill de mensagens antigas é feito pela migration.
+
+A RPC pública existente ingest_whatsapp_events continua executável somente por service_role. Sua assinatura e resposta inserted/duplicates/statuses são preservadas. Ela coleta apenas os UUIDs dos inbounds realmente inseridos e chama app_private.process_whatsapp_intake(uuid); esse processamento e app_private.complete_whatsapp_intake(uuid) são operações técnicas internas, sem EXECUTE para PUBLIC, anon, authenticated ou service_role diretamente. SECURITY DEFINER usa search_path vazio e nomes qualificados. Não há novo endpoint público, actor/profile/lead/product escolhido pelo payload nem mudança na RPC manual ADMIN-only.
+
+As três tabelas novas têm RLS e nenhuma escrita de usuários/secret por acesso direto. ADMIN ativo tem SELECT de sessões e rascunhos. AGENT não lê a sessão bruta nem os rascunhos, inclusive depois da atribuição: acessa os dados comerciais pelo lead/conversa nas políticas existentes. Turnos são técnicos, sem SELECT dos papéis da API. As novas FKs de dependência têm cascade somente na exclusão de suas mensagens/sessões/conversas pais; o cleanup controlado de fixtures permanece restrito aos mesmos registros e não é executado nesta entrega.
+
+leads.creation_source registra MANUAL por padrão ou WHATSAPP_INTAKE para a criação automática. lead_events.actor_id só admite NULL em CREATED/CONVERTED_FROM_WHATSAPP_INTAKE com data.source=WHATSAPP_INTAKE. A origem e o ator de sistema são definidos no banco, nunca no payload. Atribuições, transferências e demais ações continuam com auth.uid() e auditoria da Fase 01.
+
+Lock da conta (ordem fixa entre contas) → conversation FOR UPDATE → sessão → produto. A conversa é bloqueada antes de criar lead, como na 03A. Conversão manual e automática disputam o mesmo lock: primeiro sucesso prevalece; se a manual vencer, inbounds posteriores não alteram a sessão antiga. COMPLETE/repetição não cria outro lead. A ordem histórica da ingestão/A01/A02 é preservada; somente o intake ordena os novos inbounds por provider_timestamp e posição original no lote. Entre transações prevalece a ordem de aquisição do lock, sem reordenar retroativamente entregas atrasadas.
+
+A UI ADMIN mostra etapa, respostas, pendências e o último rascunho com a indicação “não enviada”; COMPLETE inclui link para o lead. Uma sessão antiga após conversão manual é mostrada como interrompida, sem alteração no banco. Não há edição ou botão de envio.
+
+### Transporte e testes locais da 03B1
+
+IntakeOutboundTransport está desacoplado em src/lib/whatsapp/intake-transport.ts, com implementação desabilitada que retorna DISABLED. Não há chamada Graph API, worker, access token, status SENT ou dependência de transporte para avançar o motor. Os rascunhos desta fase não foram entregues ao contato; testes enviam respostas fictícias diretamente pela RPC local. A 03B2 exigirá especificação/revisão separada de entrega, retries e status. Não reenviar automaticamente o backlog de rascunhos ao habilitar transporte no futuro.
+
+Além de pnpm test, o teste nativo opt-in usa pnpm test:intake:concurrency. Defina INTAKE_TEST_DATABASE_URL somente no processo de teste, apontando para PostgreSQL local loopback, porta explícita e banco vazio motive_intake_test_<sufixo>. O usuário local precisa criar roles/schema; use cluster descartável isolado. O script recusa URLs remotas, não lê .env.local, não usa credenciais reais e não modifica bancos compartilhados. Executa migrations 001–011 no banco vazio e disputa locks com conexões independentes, incluindo conclusão duplicada, rollback, leitura simultânea e corrida com a conversão manual.
+
+Limites: validação de e-mail é sintática; catálogo usa os aliases documentados; mensagens de entregas diferentes seguem ordem transacional; locks por conta limitam throughput. Não há coleta de anexos, retomada/cancelamento pelo painel ou transporte real. Homologação Auth/PostgREST/UI da 03B1 e migrations remotas continuam pendentes de autorização. Resultados locais e limites em VALIDATION.md.
+
 ## Staging público — Vercel
 
 URL: https://motive-leads-staging.vercel.app

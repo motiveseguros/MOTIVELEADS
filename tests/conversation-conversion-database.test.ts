@@ -106,10 +106,14 @@ beforeAll(async () => {
     ),
   );
   expect(await snapshot()).toEqual(before);
+  for (const file of migrations.filter(
+    (file) => file > "202611060010_conversation_to_lead.sql",
+  ))
+    await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
 });
 beforeEach(async () => {
   await db.exec(
-    "truncate public.messages,public.conversations,public.contacts,public.webhook_events,public.lead_events,public.leads;update employees set active=true;update products set active=true;",
+    "truncate public.messages,public.conversations,public.contacts,public.webhook_events,public.lead_events,public.leads cascade;update employees set active=true;update products set active=true;",
   );
   await ingest();
 });

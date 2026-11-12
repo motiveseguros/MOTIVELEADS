@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:intake:concurrency": "node tests/whatsapp-intake-concurrency.mjs",
     "test:watch": "vitest",
     "bootstrap:admin": "node --env-file=.env.local scripts/bootstrap-admin.mjs",
     "format": "prettier --write .",

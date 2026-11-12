@@ -48,6 +48,7 @@ export interface EmployeeProduct {
   product_id: string;
 }
 export interface Lead {
+  creation_source: "MANUAL" | "WHATSAPP_INTAKE";
   id: string;
   created_at: string;
   updated_at: string;
@@ -65,7 +66,7 @@ export interface Lead {
 export interface LeadEvent {
   id: string;
   lead_id: string;
-  actor_id: string;
+  actor_id: string | null;
   action: string;
   data: Json;
   created_at: string;
@@ -90,6 +91,7 @@ export const availabilityLabels: Record<Availability, string> = {
 export const eventLabels: Record<string, string> = {
   CREATED: "Lead criado",
   CONVERTED_FROM_CONVERSATION: "Conversa convertida em lead",
+  CONVERTED_FROM_WHATSAPP_INTAKE: "Lead criado pela coleta WhatsApp",
   ASSIGNED: "Lead atribuído",
   TRANSFERRED: "Lead transferido",
   STARTED: "Atendimento iniciado",

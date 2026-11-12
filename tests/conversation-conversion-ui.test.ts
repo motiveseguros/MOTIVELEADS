@@ -4,6 +4,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { randomUUID } from "node:crypto";
 import type { Actor } from "../src/domain/types";
 vi.mock("server-only", () => ({}));
+vi.mock("../src/lib/whatsapp/intake", () => ({
+  intakeDetail: vi.fn(async () => null),
+}));
 vi.mock("../src/lib/auth", () => ({ requireActor: vi.fn() }));
 vi.mock("../src/lib/data", () => ({ catalog: vi.fn(), pageNumber: () => 1 }));
 vi.mock("../src/lib/whatsapp/queries", () => ({ conversationDetail: vi.fn() }));

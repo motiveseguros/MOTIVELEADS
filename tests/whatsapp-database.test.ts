@@ -122,7 +122,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.exec(
-    "truncate messages,conversations,contacts,webhook_events;update whatsapp_accounts set active=true;update employees set active=true;",
+    "truncate messages,conversations,contacts,webhook_events cascade;update whatsapp_accounts set active=true;update employees set active=true;",
   );
 });
 afterAll(async () => {
