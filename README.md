@@ -1,10 +1,12 @@
-# MOTIVE LEADS — Fase 03A: Conversa → Lead
+# MOTIVE LEADS — Fase 03B1: coleta WhatsApp sem envio
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
-Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02C homologou o recebimento real do número de teste da Meta. A Fase 03A acrescenta conversão manual de conversa em lead; envio, chatbot e coleta automática continuam fora do escopo.
+Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02C homologou o recebimento real do número de teste da Meta. A Fase 03A acrescenta conversão manual de conversa em lead. A Fase 03B1 homologou coleta determinística com criação automática de lead, sem envio, IA/LLM ou distribuição automática.
 
 ## Estado da entrega
+
+**Fase 03B1 homologada em staging em 12/11/2026:** NAME → COMPLETE, um lead inicialmente NEW/sem responsável, seis inbounds preservados, seis drafts não enviados, RLS ADMIN/AGENT e atribuição/transferência verificadas. Migration 011 remota e código funcional `1538857`. Outbound permanece desabilitado.
 
 As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 foi publicada no staging em 05/11/2026, commit `748a049`, com autenticação HMAC dos POSTs. A Fase 02C foi homologada em 06/11/2026 com o número de teste da Meta, recebimento real e RLS ADMIN/AGENT. Marco publicado: `phase-02c-homologated`, commit `f9581eb`. O número oficial não foi conectado. A migration 010 foi aplicada remotamente com autorização em 09/11/2026; o histórico 001–010 está sincronizado. A Fase 03A foi homologada no staging em 11/11/2026: conversão, repetição protegida, histórico, mensagens preservadas e RLS após atribuição/transferência. Marco: `phase-03a-homologated`. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
@@ -24,9 +26,9 @@ Depois da conversão, a tela abre o lead NEW sem responsável. A atribuição/tr
 
 **Estado de implantação:** migration 010 aplicada remotamente com autorização em 09/11/2026; migrations 001–010 sincronizadas. Concorrência e rollback foram comprovados em PostgreSQL 17.11 nativo local, conforme AUDIT_PHASE03A.md. Navegação ADMIN/AGENT e Auth/PostgREST do fluxo 03A homologados em staging em 11/11/2026, no código `a50a62b`: uma conversão, repetição retornando o mesmo lead, atribuição à Bruna e transferência para Cida. A mensagem original permaneceu acessível somente ao ADMIN e à responsável atual. Consulte VALIDATION.md para evidências e limites.
 
-## Fase 03B1 — coleta determinística local, sem envio
+## Fase 03B1 — coleta determinística homologada, sem envio
 
-Implementação local para revisão: migration `202611110011_whatsapp_intake.sql`. Não aplicada no Supabase e código não publicado. A 03A homologada permanece o marco remoto. Esta etapa não conecta número oficial, não envia mensagens, não usa IA/LLM e não distribui leads automaticamente.
+Migration `202611110011_whatsapp_intake.sql` aplicada remotamente com autorização em 12/11/2026, com histórico 001–011 sincronizado. Código `1538857` publicado por fast-forward na main, deployment Vercel READY. Homologação real concluída em 12/11/2026 com novo contato do número de teste Meta, sessões ADMIN/Bruna/Cida e conferência PostgreSQL somente leitura. Marco: `phase-03b1-homologated`. Esta etapa não conecta número oficial, não envia mensagens, não usa IA/LLM e não distribui leads automaticamente.
 
 O primeiro inbound novo de uma conversa OPEN sem lead cria uma sessão ACTIVE/NAME e um rascunho com a pergunta de nome; a saudação inicial não é usada como nome. As mensagens seguintes respondem à etapa atual. O fluxo é NAME → PRODUCT → LOCATION → EMAIL → SUPPLEMENTAL → COMPLETE. Resposta inválida mantém a etapa e gera correção. CANCELLED é um estado reservado, sem operação de cancelamento nesta fase.
 
@@ -55,11 +57,11 @@ A UI ADMIN mostra etapa, respostas, pendências e o último rascunho com a indic
 
 ### Transporte e testes locais da 03B1
 
-IntakeOutboundTransport está desacoplado em src/lib/whatsapp/intake-transport.ts, com implementação desabilitada que retorna DISABLED. Não há chamada Graph API, worker, access token, status SENT ou dependência de transporte para avançar o motor. Os rascunhos desta fase não foram entregues ao contato; testes enviam respostas fictícias diretamente pela RPC local. A 03B2 exigirá especificação/revisão separada de entrega, retries e status. Não reenviar automaticamente o backlog de rascunhos ao habilitar transporte no futuro.
+IntakeOutboundTransport está desacoplado em src/lib/whatsapp/intake-transport.ts, com implementação desabilitada que retorna DISABLED. Não há chamada Graph API, worker, access token, status SENT ou dependência de transporte para avançar o motor. Os rascunhos desta fase não foram entregues ao contato. A homologação em staging recebeu seis mensagens reais pelo número de teste Meta, com confirmação do usuário de nenhum recebimento outbound; os testes automatizados locais usam entradas fictícias pela RPC. A 03B2 exigirá especificação/revisão separada de entrega, retries e status. Não reenviar automaticamente o backlog de rascunhos ao habilitar transporte no futuro.
 
 Além de pnpm test, o teste nativo opt-in usa pnpm test:intake:concurrency. Defina INTAKE_TEST_DATABASE_URL somente no processo de teste, apontando para PostgreSQL local loopback, porta explícita e banco vazio motive_intake_test_<sufixo>. O usuário local precisa criar roles/schema; use cluster descartável isolado. O script recusa URLs remotas, não lê .env.local, não usa credenciais reais e não modifica bancos compartilhados. Executa migrations 001–011 no banco vazio e disputa locks com conexões independentes, incluindo conclusão duplicada, rollback, leitura simultânea e corrida com a conversão manual.
 
-Limites: validação de e-mail é sintática; catálogo usa os aliases documentados; mensagens de entregas diferentes seguem ordem transacional; locks por conta limitam throughput. Não há coleta de anexos, retomada/cancelamento pelo painel ou transporte real. Homologação Auth/PostgREST/UI da 03B1 e migrations remotas continuam pendentes de autorização. Resultados locais e limites em VALIDATION.md.
+Limites: validação de e-mail é sintática; catálogo usa os aliases documentados; mensagens de entregas diferentes seguem ordem transacional; locks por conta limitam throughput. Não há coleta de anexos, retomada/cancelamento pelo painel ou transporte real. Auth/PostgREST/UI e RLS foram homologados para o fluxo de teste descrito em VALIDATION.md. Entregas fora de ordem entre transações e avaliação de carga continuam pendências antes do número oficial/escala maior. A 03B2 exige autorização e um marco explícito de ativação: nenhum draft histórico da 03B1 é fila para envio retroativo.
 
 ## Staging público — Vercel
 

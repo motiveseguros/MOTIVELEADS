@@ -1,5 +1,58 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 03B1 homologada em staging — 12/11/2026
+
+Código funcional verificado: `1538857`, publicado por fast-forward na main após aprovação do usuário. O dry-run listou somente `202611110011_whatsapp_intake.sql`; o db push autorizado aplicou somente essa migration, sem seeds/roles adicionais. Ambos retornaram código 0. Migration list confirmou todas as versões 001–011 iguais no local e remoto. Deployment `dpl_7mjx9QUjGrnKqPqTTt9s2dwvV7LU` ficou READY e a URL pública do staging passou a apontar para ele.
+
+### Fluxo real Meta → intake → lead
+
+Foi utilizado outro contato WhatsApp, criando conversation OPEN sem lead, sem reutilizar a conversa da 03A que já tinha vínculo. Cada mensagem foi enviada pelo usuário e conferida no painel ADMIN antes da seguinte:
+
+| Entrada real                | Resultado observado                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| Oi, gostaria de saber mais. | ACTIVE/NAME, campos pendentes, draft perguntando o nome; saudação não interpretada como nome |
+| Renan teste                 | Nome preservado como recebido; PRODUCT                                                       |
+| Consórcio                   | Produto resolvido no catálogo; LOCATION                                                      |
+| Vitória/ES                  | Vitória / ES em campos separados; EMAIL                                                      |
+| homologacao03b1@example.com | E-mail preservado; SUPPLEMENTAL                                                              |
+| Não                         | COMPLETE, informações adicionais ausentes, link para o único lead criado                     |
+
+A última entrada gerou um lead NEW/sem responsável, com telefone derivado do contato, produto Consórcio, localidade/e-mail coletados e origem WHATSAPP_INTAKE. A lista Novos Leads passou de zero para um registro. Dois eventos de sistema apareceram: CREATED e CONVERTED_FROM_WHATSAPP_INTAKE. A conversa manteve os seis inbounds; o draft final apareceu separado, marcado como não enviado. O usuário confirmou explicitamente, no aparelho do cliente, que nenhuma pergunta ou resposta da Motive foi recebida.
+
+### Auth, UI e acesso após distribuição
+
+- ADMIN autenticado visualizou a sessão, os drafts preparados e o novo lead.
+- Antes da atribuição, Bruna autenticada viu zero leads/conversas; ambas as URLs diretas retornaram Registro não encontrado com sessão válida.
+- ADMIN atribuiu pelo fluxo normal à Bruna disponível, após confirmação. Bruna passou a acessar o lead, seus três eventos e os seis inbounds. O painel de intake/drafts não apareceu, nem controles de atribuição/transferência.
+- ADMIN transferiu para Cida, ativa e compatível, confirmando o alerta Offline e a concessão de acesso. Surgiu o quarto evento (TRANSFERRED), e o mesmo lead permaneceu ASSIGNED/Distribuído, agora com Cida.
+- Após a transferência, Bruna voltou a ver zero leads/conversas; ambas as URLs diretas retornaram Registro não encontrado com sessão preservada.
+- Cida autenticada, ainda Offline, acessou o mesmo lead, os quatro eventos e os seis inbounds. Intake/drafts e controles de distribuição continuaram ausentes na sua UI.
+- ADMIN manteve acesso ao lead e à conversation, com coleta COMPLETE e os mesmos seis inbounds após transferência.
+
+### Conferência remota somente leitura
+
+Consulta PostgreSQL administrativa com CA oficial e rejectUnauthorized=true, validando o mesmo projeto vinculado. Transações READ ONLY; nenhuma gravação. Foram conferidos os registros e executadas consultas sob SET LOCAL ROLE authenticated e claims locais de cada perfil real, sempre com rollback. Esses testes comprovam RLS/grants no banco; a autenticação real de usuários e a navegação/PostgREST foram verificadas separadamente pelo painel, sem extrair cookies ou tokens.
+
+Estado final: uma sessão COMPLETE, seis turns, seis drafts DRAFT, seis messages INBOUND, zero OUTBOUND, uma conversão associada à conversation e quatro eventos do mesmo lead. Supplemental_notes NULL, creation_source WHATSAPP_INTAKE; responsável final Cida e status ASSIGNED. NEW e responsável NULL foram observados antes da distribuição e não são o estado final esperado depois dela.
+
+| Perfil no contexto authenticated | Sessões visíveis | Drafts visíveis | Lead/conversation do teste |
+| -------------------------------- | ---------------- | --------------- | -------------------------- |
+| ADMIN                            | 1                | 6               | 1 / 1                      |
+| Bruna após transferência         | 0                | 0               | 0 / 0                      |
+| Cida responsável                 | 0                | 0               | 1 / 1                      |
+
+Nenhum desses contextos possui INSERT/UPDATE/DELETE em sessions/drafts, SELECT em turns ou EXECUTE nas funções privadas process_whatsapp_intake/complete_whatsapp_intake. O grant SELECT de authenticated em sessions/drafts continua subordinado à RLS ADMIN-only; ausência do painel não é a única proteção.
+
+### Resultado e limites
+
+**Fase 03B1 homologada para o fluxo de teste solicitado, com outbound desabilitado.** Marco phase-03b1-homologated. O lead de teste permanece atribuído à Cida; nenhum atendimento foi iniciado, contato alterado ou mensagem enviada pela aplicação. A tag inclui somente documentação adicional ao código funcional verificado; migrations e aplicação não mudaram nesta conclusão.
+
+A rodada comprova tráfego real de teste, transições, persistência, auditoria, Auth/PostgREST/UI e RLS no destino. Atomicidade por falha forçada, duplicatas e concorrência continuam sustentadas pelos 379 testes e sete cenários PostgreSQL nativos locais previamente aprovados; não foram forçadas falhas ou disputas no banco remoto. Esses testes não foram reexecutados nesta rodada operacional/documental. Formatação documental: pnpm format:check.
+
+Riscos conhecidos preservados: ordem entre transações segue aquisição de lock; lock por conta serializa ingestões. Avaliar eventos fora de ordem e carga antes do número oficial/escala maior. A futura 03B2 depende de especificação/autorização próprias e de marco explícito de ativação, sem consumir retroativamente os drafts históricos. Não foi feita mudança na configuração Meta, habilitação de envio, acesso a número oficial ou adição de credenciais.
+
+Evidências com detalhes operacionais ficam fora do Git em work/phase03b1-staging: progress.json, screenshots e remote-readonly-rls.json. Nenhum telefone, senha, token ou connection string foi copiado para esta documentação.
+
 ## Publicação para revisão — 12/11/2026
 
 Publicação autorizada exclusivamente na branch `phase-03b1-review`, com base em `0309fe5`, sem alteração de main, tag, deploy ou aplicação da migration 011. Aos 21 arquivos da implementação abaixo foi acrescentado somente `vercel.json`, com `git.deploymentEnabled["phase-03b1-review"] = false`, para impedir Preview automático dessa branch. Esse bloqueio não desabilita outras branches. A primeira mensagem continua apenas iniciando NAME e gerando a pergunta; drafts históricos não constituem fila de envio. A futura 03B2 exigirá um marco explícito para habilitar transporte, sem disparar retrospectivamente os drafts da 03B1.

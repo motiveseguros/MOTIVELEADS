@@ -2,7 +2,7 @@
 
 ## Escopo
 
-Fases 01, 02A, 02B e 02C homologadas pelo usuário. Meta inbound homologada somente com número de teste. Fase 03A homologada em staging. Fase 03B1 autorizada localmente e para publicação somente na branch phase-03b1-review: coleta determinística sem transporte, criando lead NEW sem responsável. Preservar distribuição manual, RLS e ingestão. Sem número oficial, envio real ou IA/LLM.
+Fases 01, 02A, 02B e 02C homologadas pelo usuário. Meta inbound homologada somente com número de teste. Fase 03A homologada em staging. Fase 03B1 homologada em staging em 12/11/2026: migration 011 remota, coleta determinística sem transporte, criando lead NEW sem responsável. Preservar distribuição manual, RLS e ingestão. Sem número oficial, envio real ou IA/LLM.
 
 ## Stack
 
@@ -119,11 +119,11 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 
 ## Fase 03B1 — coleta sem transporte
 
-- Não editar migrations 001–010. Migration 011 permanece sem aplicação remota. Publicação autorizada somente em phase-03b1-review, com deploy automático dessa branch desabilitado; não alterar main, criar tag, fazer deploy ou db push sem nova autorização.
+- Não editar migrations 001–011: a 011 foi aplicada remotamente com autorização e homologada em 12/11/2026. Código 1538857 publicado na main; marco phase-03b1-homologated. O bloqueio de Preview continua exclusivo de phase-03b1-review. Novas migrations/deploys e implementação da 03B2 exigem autorização própria.
 - Estado/validação/idempotência/conclusão residem no banco. Somente novos inbounds chegam ao intake, na mesma transação de ingestão. Duplicata não reaplica turno, inclusive de mensagens anteriores à migration.
 - Primeira mensagem abre NAME e gera pergunta; respostas seguintes avançam NAME → PRODUCT → LOCATION → EMAIL → SUPPLEMENTAL → COMPLETE. Produtos ativos resolvidos por nomes/aliases auditáveis, nunca UUID fixo.
 - Telefone vem do contato/wa_id; nunca perguntar, inventar ou distribuir automaticamente. COMPLETE cria NEW sem responsável; telefone ausente exige revisão sem conclusão.
-- Rascunhos DRAFT em tabela própria não são mensagens enviadas. Não ligar worker, Graph API ou transporte real, nem reprocessar backlog automaticamente.
+- Rascunhos DRAFT em tabela própria não são mensagens enviadas. Não ligar worker, Graph API ou transporte real, nem reprocessar backlog automaticamente. A futura 03B2 exige marco explícito de ativação; drafts históricos da 03B1 nunca devem ser enviados retroativamente.
 - Conclusão técnica privada não recebe ator externo e não relaxa conversão ADMIN-only. Auditoria explícita WHATSAPP_INTAKE com actor_id NULL somente nos dois eventos de criação automática; ações humanas mantêm auth.uid().
 - RLS nova: ADMIN lê sessão/drafts, AGENT recebe dados comerciais pelo lead/conversa atribuídos; nenhuma escrita direta da API.
 - Preservar A01/A02/F03 e a ordem de preenchimento de display_name. Ordenar por timestamp/posição somente o processamento de intake dos UUIDs realmente novos, depois da ingestão original.
