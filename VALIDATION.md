@@ -1,6 +1,37 @@
 # Verificação — MOTIVE LEADS
 
-## Fase 03B2B1 — revisão local em 16/11/2026
+## Fase 03B2B1 homologada em staging — 16/11/2026
+
+Migration 202611160013_whatsapp_prompt_validity.sql aplicada com autorização; migration list confirmou 001–013 Local = Remote. Código funcional ebd8112 publicado por fast-forward na main. Deployment dpl_5cCmbB31BRpQGYpgCQXuuWqzXkF4 READY, associado a https://motive-leads-staging.vercel.app. Marco: phase-03b2b1-homologated.
+
+### Roteiro real e estado final
+
+Três mensagens de um contato novo chegaram pela Meta ao pipeline de staging. A conversa permaneceu OPEN, sem lead, com três inbounds preservados e intake em LOCATION. Os dois jobs legados pertencem a outra conversa e não foram alterados.
+
+| Etapa                  | Evidência                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| Upgrade DISABLED       | Dois legados QUEUED, validity_version=0, attempts=0; seis drafts históricos sem jobs                    |
+| Ativação ADMIN         | LIVE, geração 3/fronteira 9; nenhum job criado ou legado promovido                                      |
+| Oi                     | Draft sequence 10; um job QUEUED, validity_version=1, attempts=0; intake NAME                           |
+| Cliente Validade       | Sequence 10 CANCELLED/PROMPT_SUPERSEDED; sequence 11 QUEUED; intake PRODUCT                             |
+| Claim técnico único    | Sequence 11 PROCESSING, attempts=1, token presente, dispatch_started_at NULL                            |
+| Consórcio              | Sequence 11 CANCELLED/PROMPT_SUPERSEDED, token revogado; sequence 12 QUEUED/attempts=0; intake LOCATION |
+| Begin com token antigo | Erro SQLSTATE 40001; nenhuma mudança de job/evento, nenhum provider                                     |
+| Desativação ADMIN      | DISABLED, geração 3/fronteira 9; último job retido, sem execução                                        |
+
+Claim às 19:18:35.049 UTC; invalidação às 19:19:01.800 UTC, 26,751 segundos depois, dentro do lease de dois minutos. A tentativa posterior com o token antigo foi executada somente após comprovar CANCELLED/token NULL e rejeitada com 40001. Foi cercada por savepoint/rollback, sem executar worker/provider. O erro reúne estado/token/lease; a remoção do token e o cancelamento antes de expirar o lease foram comprovados separadamente pelos registros do banco.
+
+Estado final: cinco jobs (dois legados QUEUED versão 0, dois novos CANCELLED versão 1 e último QUEUED versão 1), 14 eventos de transporte e zero messages OUTBOUND globalmente. Todos os jobs têm dispatch_started_at, provider_kind e provider_message_id NULL. Nenhum evento DISPATCH_STARTED ou ACCEPTED_FAKE. Antes de desligar, somente sequence 12 atendia à validade/precedência da geração atual; DISABLED impede novos claims/dispatch. Drafts anteriores continuam preservados. Não houve chamada de envio Meta; o usuário confirmou ausência de resposta no aparelho após a saudação.
+
+### RLS e limites da prova
+
+No PostgreSQL remoto, sob role authenticated e claims transacionais de cada perfil ativo, ADMIN viu uma configuração, cinco jobs e 14 eventos. Bruna e Cida receberam zero linhas nas três tabelas, sem escrita direta ou EXECUTE das RPCs técnicas. Essa rodada comprova RLS SQL real, não representa novos logins no navegador nem chamadas PostgREST com JWT de usuário. A UI/Auth anterior permanece documentada nas fases anteriores.
+
+Ativar/desativar usou a RPC ADMIN existente com perfil ativo previamente identificado; claim e begin usaram as RPCs existentes sob service_role SQL, via conexão administrativa controlada. Não houve DML direto em jobs/config/events. Operações foram limitadas à conta Meta de teste, IDs observados, pré-condições e locks, com TLS/CA verificados. O begin negativo nunca chamou provider; nenhum worker/cron foi iniciado. Não houve nova migration, mudança de RLS, credencial de envio ou alteração de configuração Meta.
+
+Recibos e snapshots sanitizados em work/phase03b2b1-staging, fora do Git. O token do claim ficou somente em arquivo local privado durante a verificação, sem log, e foi descartado após a prova. Não versionar credenciais ou dados pessoais. Somente README.md, AGENTS.md, VALIDATION.md e PHASE03B2B1_REVIEW.md foram atualizados para o marco; código e migrations permaneceram intactos. Formatação conferida nesta atualização documental; os 471 testes e 30 cenários nativos abaixo pertencem à validação da implementação e não foram reexecutados para esta alteração exclusiva de documentação.
+
+## Histórico: Fase 03B2B1 — revisão local em 16/11/2026
 
 Base `phase-03b2a-homologated` / `2e2c3a5`. Validação realizada localmente; publicação posterior autorizada somente em `phase-03b2b1-review`, com Preview bloqueado, sem merge na main/deploy/tag. Migration nova `202611160013_whatsapp_prompt_validity.sql` ainda exclusivamente local. Relatório técnico e decisões: [PHASE03B2B1_REVIEW.md](PHASE03B2B1_REVIEW.md).
 

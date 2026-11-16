@@ -143,9 +143,11 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - Desativação impede novos enqueue/claims/begin, mas não desfaz tentativa já iniciada. Recuperação é explícita, sem reaper; jobs antigos ficam retidos até decisão administrativa. Reconciliação externa e mensagem OUTBOUND real pertencem à 03B2B.
 - Preservar testes de fronteira/replay, rollback, fencing, privilégios e regressão. Conflitos reais exigem PostgreSQL nativo local com conexões independentes; PGlite não prova concorrência. Testes/benchmark nunca carregam credenciais remotas.
 
-## Fase 03B2B1 — branch de revisão, sem implantação
+## Fase 03B2B1 — homologada, sem envio
 
-- Base phase-03b2a-homologated/2e2c3a5; 013 não aplicada, em phase-03b2b1-review com publicação autorizada somente nessa branch e Preview bloqueado. Não publicar main/tag, aplicar migration, ativar remoto, executar jobs remotos ou conectar envio sem autorização posterior.
+- Homologada em 16/11/2026 após aplicação autorizada da 013, histórico 001–013 sincronizado e código ebd8112 na main/READY. Marco phase-03b2b1-homologated. Não editar migrations 001–013. A branch de revisão mantém Preview bloqueado.
+- Estado final de teste: DISABLED, geração 3/fronteira 9; dois legados QUEUED validity_version=0/attempts=0 intactos. Dos três jobs novos, dois CANCELLED/PROMPT_SUPERSEDED (attempts 0 e 1) e último QUEUED/attempts=0. Um único claim técnico autorizado; inbound revogou token dentro do lease; begin com token antigo recusado 40001. Zero dispatch, OUTBOUND e chamadas de provider. Não reativar/processar/cancelar automaticamente.
+- RLS remota verificada por SQL authenticated com claims dos perfis: ADMIN lê config/jobs/events; Bruna/Cida recebem zero. Não confundir essa conferência com novo login/UI/PostgREST. A 03B2B2 exige autorização própria para adapter, credenciais e envio; nenhum draft histórico ou job legado pode ser promovido.
 - Não editar 001–012. Validade e ordem pertencem ao banco. Novo draft invalida anteriores sem dispatch, mesmo DISABLED; conversão/close invalidam transacionalmente, com motivos/auditoria técnica NULL. Preservar completion acknowledgement após vínculo automático.
 - Ordenar por draft_sequence; no máximo um PROCESSING por conversation. Predecessores não terminais, inclusive RECONCILIATION_REQUIRED e gerações antigas, bloqueiam. Legado validity_version=0 nunca é promovido automaticamente.
 - Account → conversation → config → job nas RPCs claim/begin; triggers de conversão/close apenas conversation → jobs. Não adquirir account depois de conversation nas novas funções.

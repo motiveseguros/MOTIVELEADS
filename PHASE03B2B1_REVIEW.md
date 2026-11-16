@@ -1,6 +1,8 @@
-# Fase 03B2B1 — validade e ordem, revisão local
+# Fase 03B2B1 — validade e ordem, homologada
 
-Base: `phase-03b2a-homologated`, commit `2e2c3a5`. Data: 16/11/2026. Publicação autorizada somente na branch `phase-03b2b1-review`, com Preview bloqueado. Única migration nova: `202611160013_whatsapp_prompt_validity.sql`. Migrations 001–012 preservadas. Não houve db push, conexão remota nesta fase, alteração da main, tag, deploy, credencial ou envio Meta.
+Estado atual: homologada em staging em 16/11/2026; marco `phase-03b2b1-homologated`. Migration 013 aplicada com autorização e código `ebd8112` publicado/READY. Supersede de QUEUED e PROCESSING confirmado com três inbounds reais; token antigo recusado com 40001. Transporte final DISABLED, legados intactos e zero dispatch/OUTBOUND/provider. Detalhes e limites da prova remota em [VALIDATION.md](VALIDATION.md).
+
+Histórico da revisão local — Base: `phase-03b2a-homologated`, commit `2e2c3a5`. Data: 16/11/2026. Publicação autorizada somente na branch `phase-03b2b1-review`, com Preview bloqueado. Única migration nova: `202611160013_whatsapp_prompt_validity.sql`. Migrations 001–012 preservadas. Não houve db push, conexão remota nesta fase, alteração da main, tag, deploy, credencial ou envio Meta.
 
 ## Decisões SQL
 
@@ -56,7 +58,7 @@ Reprodução: banco LOCAL vazio `motive_outbound_test_<sufixo>`, OUTBOUND_TEST_D
 
 ## Pendências antes da 03B2B2
 
-Revisão da 013, autorização separada de dry-run/aplicação e homologação em staging. Nenhum job remoto foi executado ou reativado. Resolver evidência real/reconciliação/adapter somente em fase autorizada. Não transformar drafts históricos em fila nem promover jobs validity_version=0. Este gate assegura validade no instante do begin; não consegue recolher uma autorização já emitida.
+Revisão, aplicação e homologação funcional da 013 concluídas. A rodada remota autorizou um único claim sem worker e uma tentativa de begin com token já revogado, recusada pelo banco. Nenhum dispatch/provider foi executado. Resolver evidência real/reconciliação/adapter somente em fase autorizada. Não transformar drafts históricos em fila nem promover jobs validity_version=0. Este gate assegura validade no instante do begin; não consegue recolher uma autorização já emitida.
 
 ## Arquivos da entrega
 

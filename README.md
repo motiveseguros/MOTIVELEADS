@@ -1,4 +1,4 @@
-# MOTIVE LEADS — Fase 03B2B1: validade e ordem em revisão local
+# MOTIVE LEADS — Fase 03B2B1: validade e ordem homologadas
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
@@ -6,7 +6,7 @@ Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, compon
 
 ## Estado da entrega
 
-**03B2B1 em branch de revisão:** migration 013 invalida prompts obsoletos e ordena jobs por conversation no banco. Publicação autorizada somente em `phase-03b2b1-review`, Preview desabilitado; sem publicação na main, db push, tag ou envio. Remoto continua no marco 03B2A. [Relatório da 013](PHASE03B2B1_REVIEW.md).
+**Fase 03B2B1 homologada em staging em 16/11/2026:** migration 013 remota, código funcional `ebd8112` na main e deployment READY. Três inbounds reais de um contato novo comprovaram supersede de QUEUED e PROCESSING antes de begin; token revogado recusado com 40001. Estado final: DISABLED, geração 3/fronteira 9, dois legados validity_version=0 intactos, dois jobs novos CANCELLED/PROMPT_SUPERSEDED e último QUEUED. Zero dispatch/OUTBOUND/provider. Marco: `phase-03b2b1-homologated`. RLS SQL remota e limites em [VALIDATION.md](VALIDATION.md); [relatório da 013](PHASE03B2B1_REVIEW.md).
 
 **Fase 03B2A homologada em staging em 16/11/2026:** migration 012 remota, código funcional `d0ed2a7` na main e deployment READY. Ativação nas gerações 1 e 2 comprovou zero replay dos seis drafts históricos e do draft criado durante DISABLED. Estado final: DISABLED, dois jobs QUEUED retidos, zero tentativas e zero messages OUTBOUND. ADMIN vê diagnóstico; RLS nega config/jobs/events a Bruna/Cida, e a UI real da Cida não exibe transporte. Marco: `phase-03b2a-homologated`. Sem worker automático, credencial ou chamada de envio Meta. Evidências e limites em [VALIDATION.md](VALIDATION.md) e [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
 
@@ -22,7 +22,7 @@ A 013 adiciona sequência do draft, versão de validade e motivo explícito ao j
 
 Claim e begin são protegidos por lock de conversation, validação do prompt mais recente, geração/mode e predecessor não resolvido. UNIQUE parcial limita PROCESSING a um por conversation. RECONCILIATION_REQUIRED bloqueia sucessores, inclusive entre gerações. Se begin vencer uma corrida, a tentativa já iniciada precisa terminar ou ser reconciliada; não há cancelamento retroativo.
 
-A política local da 013 substitui o retry pós-begin da 012 descrito historicamente abaixo: recusas conhecidas terminam FAILED e resultados incertos exigem reconciliação, sem retry automático após dispatch. Recuperação antes de begin preserva backoff/limite. Provider continua DISABLED. Detalhes de locks, upgrade e testes: [PHASE03B2B1_REVIEW.md](PHASE03B2B1_REVIEW.md).
+A política da 013 substitui o retry pós-begin da 012 descrito historicamente abaixo: recusas conhecidas terminam FAILED e resultados incertos exigem reconciliação, sem retry automático após dispatch. Recuperação antes de begin preserva backoff/limite. Provider continua DISABLED. Detalhes de locks, upgrade e testes: [PHASE03B2B1_REVIEW.md](PHASE03B2B1_REVIEW.md).
 
 ## Fase 03B2A — infraestrutura homologada, política histórica da 012
 
