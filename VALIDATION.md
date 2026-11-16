@@ -1,6 +1,40 @@
 # Verificação — MOTIVE LEADS
 
-## Fase 03B2A — revisão local em 12/11/2026
+## Fase 03B2A homologada em staging — 16/11/2026
+
+Migration 012 aplicada remotamente com autorização; migration list confirmou 001–012 iguais no local e remoto. Código funcional `d0ed2a7` publicado por fast-forward na main. Deployment `dpl_3MR1MreJDmhpw9YHYfxyPK6Xqh1M` READY, associado a https://motive-leads-staging.vercel.app. As mensagens do teste foram recebidas em 13/11; a última conferência e desativação ocorreram em 16/11.
+
+### Fronteiras verificadas com tráfego real
+
+| Momento                              | Modo / geração / fronteira | Resultado                                                      |
+| ------------------------------------ | -------------------------- | -------------------------------------------------------------- |
+| Upgrade, antes da ativação           | Config ausente = DISABLED  | Seis drafts históricos preservados, zero jobs, zero OUTBOUND   |
+| Primeira ativação                    | LIVE / 1 / 6               | Zero jobs históricos                                           |
+| Primeiro inbound: saudação           | LIVE / 1 / 6               | Draft 7, um job QUEUED geração 1, attempts 0                   |
+| Desativação e inbound: Cliente Teste | DISABLED / 1 / 6           | Draft 8, sem job; total permanece um                           |
+| Reativação                           | LIVE / 2 / 8               | Draft 8 continua sem job; job da geração 1 retido              |
+| Inbound: Consórcio, 13/11 às 12:24   | LIVE / 2 / 8               | Draft 9, exatamente um novo job QUEUED geração 2               |
+| Desativação final                    | DISABLED / 2 / 8           | Dois jobs QUEUED retidos, attempts 0, dispatch_started_at NULL |
+
+Estado final: nove drafts na conta de teste (seis históricos e três desta rodada), dois jobs, seis eventos de transporte, zero messages OUTBOUND no banco. Os seis eventos são duas ativações, duas desativações e dois enqueues. Os três inbounds permanecem na conversa nova sem lead; coleta em LOCATION. O usuário confirmou que não recebeu respostas da Motive, inclusive depois de Consórcio. Nenhum claim, begin, runOutboundOnce, provider, cron ou chamada de envio Meta foi executado.
+
+### Autorização e limites da evidência
+
+ADMIN autenticado no staging viu Ativo/Desabilitado, Na fila, Tentativas 0/5 e aviso de job retido. Cida autenticada abriu uma conversa atribuída ao seu lead, com seis inbounds preservados, sem painel de intake/drafts ou transporte.
+
+Leituras no PostgreSQL remoto sob role authenticated e identidade de cada perfil: ADMIN viu uma configuração, dois jobs e seis eventos; Bruna e Cida receberam zero linhas nas três tabelas. Nenhum desses perfis possui escrita direta nas tabelas ou EXECUTE das RPCs técnicas verificadas. Essa prova SQL de RLS é distinta do login/UI real: a sessão visual AGENT conferida nesta rodada foi a de Cida, não a de Bruna.
+
+As quatro mudanças de modo usaram exclusivamente a RPC administrativa existente, pela conexão PostgreSQL controlada, com role authenticated e claims transacionais do ADMIN ativo previamente identificado. Não foram chamadas HTTP com JWT do navegador. Conta de teste exata, pré-condições, locks, TLS com CA/rejectUnauthorized=true e recibos locais antes do commit limitaram as operações. Não houve DML direto em config/jobs/events, mudança de schema/RLS ou configuração Meta. Nenhuma credencial foi adicionada ou registrada.
+
+Evidências e recibos sanitizados permanecem fora do Git em work/phase03b2a-staging. A conexão utilizou o session pooler já registrado pela CLI para o mesmo projeto, sem modificar .env.local. Não foram executados testes de worker/concorrência no remoto; seus resultados locais anteriores continuam registrados abaixo.
+
+### Encerramento e gates da 03B2B
+
+Marco: `phase-03b2a-homologated`. Transporte final DISABLED; jobs de teste retidos e sem execução. Esta homologação comprova outbox/fronteiras, não transporte real. Antes de qualquer envio na 03B2B, implementar e revisar invalidação/cancelamento de prompts obsoletos e ordenação por conversa. Nunca transformar drafts históricos em fila, nem retomar jobs antigos indiscriminadamente.
+
+Somente README.md, AGENTS.md, VALIDATION.md e PHASE03B2A_REVIEW.md foram atualizados para registrar o encerramento; nenhum código funcional ou migration foi alterado. Formatação verificada nesta atualização documental; os 439 testes e demais checks registrados na revisão local não foram reexecutados por esta mudança exclusiva de documentação.
+
+## Histórico: Fase 03B2A — revisão local em 12/11/2026
 
 Base: phase-03b1-homologated (`e0cc6e7`). Migration nova `202611120012_whatsapp_outbound_outbox.sql`, exclusivamente local. Relatório de arquitetura, schemas, grants, RLS, locks, estados, retry, recuperação, limites e lista completa de arquivos: [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
 

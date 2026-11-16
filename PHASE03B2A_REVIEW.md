@@ -1,4 +1,8 @@
-# Fase 03B2A — relatório para revisão
+# Fase 03B2A — relatório de revisão e homologação
+
+Atualização: homologação em staging concluída em 16/11/2026, marco `phase-03b2a-homologated`. Migration 012 remota, main `d0ed2a7` e Vercel READY. Duas gerações verificadas com inbounds reais: drafts históricos e do período desligado sem jobs; dois jobs QUEUED, zero tentativas/OUTBOUND; estado final DISABLED. ADMIN e Cida conferidos na UI; RLS de Bruna/Cida conferida no PostgreSQL remoto. Detalhes e limites em [VALIDATION.md](VALIDATION.md). O conteúdo abaixo preserva o relatório histórico da revisão local; as pendências de implantação daquela data foram atendidas, e os gates de transporte real continuam obrigatórios.
+
+## Registro histórico da revisão local
 
 Data: 12/11/2026. Base homologada: `phase-03b1-homologated`, `e0cc6e7`. Branch: `phase-03b2a-review`. Esta entrega é local e para revisão; não é homologação remota da 012.
 

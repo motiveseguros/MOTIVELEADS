@@ -129,9 +129,11 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - Preservar A01/A02/F03 e a ordem de preenchimento de display_name. Ordenar por timestamp/posição somente o processamento de intake dos UUIDs realmente novos, depois da ingestão original.
 - Concorrência nativa é opt-in, exclusivamente em PostgreSQL local vazio e isolado; nunca usar conexão administrativa remota para esses testes.
 
-## Fase 03B2A — outbox em revisão, sem envio
+## Fase 03B2A — outbox homologada, sem envio
 
-- Autorizada implementação e publicação somente em phase-03b2a-review, com Preview dessa branch desabilitado em vercel.json. Não aplicar 012 remotamente, alterar main, criar tag, modificar configuração Vercel/Meta ou adicionar credencial de envio.
+- Fase homologada em staging em 16/11/2026 após aplicação autorizada da 012 e fast-forward de d0ed2a7 na main, com deployment READY. Marco phase-03b2a-homologated. Preview da branch de revisão permanece desabilitado. Não editar migrations 001–012.
+- Preservar estado final da conta de teste: DISABLED, geração 2/fronteira 8, dois jobs QUEUED retidos com zero tentativas, nenhum OUTBOUND. Homologação não executou claim/begin/worker nem envio. Não ativar/processar/cancelar esses jobs automaticamente.
+- 03B2B exige autorização e revisão próprias; resolver invalidação de prompts obsoletos e ordenação por conversa antes do primeiro envio. Nunca enviar drafts históricos ou retomar gerações antigas indiscriminadamente.
 - Não editar 001–011. A 012 adiciona config/jobs/events e trigger INSERT-only de draft; não reescrever ingestão nem procurar drafts para backfill. Config ausente é DISABLED. Cada DISABLED → LIVE grava nova fronteira por conta e generation; repetição LIVE preserva a fronteira.
 - Draft não é job e job não é mensagem enviada. UNIQUE draft_id; apenas novo draft dentro da transação do intake pode enfileirar. Nunca reenfileirar histórico da 03B1 ou do período desligado. Reativação não retoma jobs de geração anterior.
 - Ordem de locks: conta → config → job; ativação/ingestão usam conta FOR UPDATE, claim/begin usam FOR SHARE e job FOR UPDATE SKIP LOCKED no claim. Não mudar locking legado sem medição.

@@ -1,4 +1,4 @@
-# MOTIVE LEADS — Fase 03B2A: outbox em revisão, sem envio
+# MOTIVE LEADS — Fase 03B2A: outbox homologada, sem envio
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
@@ -6,7 +6,7 @@ Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, compon
 
 ## Estado da entrega
 
-**03B2A somente em revisão local/branch `phase-03b2a-review`:** migration 012 cria ativação por conta, outbox, claims, retries e recuperação. Não aplicada ao Supabase; main/staging continuam no marco `phase-03b1-homologated` (`e0cc6e7`). Preview dessa branch desabilitado no repositório. Sem credencial de envio, chamadas à Meta ou mensagem real. Relatório completo em [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
+**Fase 03B2A homologada em staging em 16/11/2026:** migration 012 remota, código funcional `d0ed2a7` na main e deployment READY. Ativação nas gerações 1 e 2 comprovou zero replay dos seis drafts históricos e do draft criado durante DISABLED. Estado final: DISABLED, dois jobs QUEUED retidos, zero tentativas e zero messages OUTBOUND. ADMIN vê diagnóstico; RLS nega config/jobs/events a Bruna/Cida, e a UI real da Cida não exibe transporte. Marco: `phase-03b2a-homologated`. Sem worker automático, credencial ou chamada de envio Meta. Evidências e limites em [VALIDATION.md](VALIDATION.md) e [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
 
 **Fase 03B1 homologada em staging em 12/11/2026:** NAME → COMPLETE, um lead inicialmente NEW/sem responsável, seis inbounds preservados, seis drafts não enviados, RLS ADMIN/AGENT e atribuição/transferência verificadas. Migration 011 remota e código funcional `1538857`. Outbound permanece desabilitado.
 
