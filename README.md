@@ -1,10 +1,12 @@
-# MOTIVE LEADS — Fase 03B2A: outbox homologada, sem envio
+# MOTIVE LEADS — Fase 03B2B1: validade e ordem em revisão local
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
 Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02C homologou o recebimento real do número de teste da Meta. A Fase 03A acrescenta conversão manual de conversa em lead. A Fase 03B1 homologou coleta determinística com criação automática de lead, sem envio, IA/LLM ou distribuição automática.
 
 ## Estado da entrega
+
+**03B2B1 em branch de revisão:** migration 013 invalida prompts obsoletos e ordena jobs por conversation no banco. Publicação autorizada somente em `phase-03b2b1-review`, Preview desabilitado; sem publicação na main, db push, tag ou envio. Remoto continua no marco 03B2A. [Relatório da 013](PHASE03B2B1_REVIEW.md).
 
 **Fase 03B2A homologada em staging em 16/11/2026:** migration 012 remota, código funcional `d0ed2a7` na main e deployment READY. Ativação nas gerações 1 e 2 comprovou zero replay dos seis drafts históricos e do draft criado durante DISABLED. Estado final: DISABLED, dois jobs QUEUED retidos, zero tentativas e zero messages OUTBOUND. ADMIN vê diagnóstico; RLS nega config/jobs/events a Bruna/Cida, e a UI real da Cida não exibe transporte. Marco: `phase-03b2a-homologated`. Sem worker automático, credencial ou chamada de envio Meta. Evidências e limites em [VALIDATION.md](VALIDATION.md) e [PHASE03B2A_REVIEW.md](PHASE03B2A_REVIEW.md).
 
@@ -14,7 +16,15 @@ As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
 
-## Fase 03B2A — autorização de fila, sem transporte real
+## Fase 03B2B1 — validade e ordem antes de qualquer transporte
+
+A 013 adiciona sequência do draft, versão de validade e motivo explícito ao job. Novo draft invalida prompts anteriores sem dispatch; conversão/fechamento invalidam na mesma transação. A confirmação final de COMPLETE continua válida. Drafts e mensagens permanecem preservados. Legados ficam com validity_version=0, sem promoção ou backfill.
+
+Claim e begin são protegidos por lock de conversation, validação do prompt mais recente, geração/mode e predecessor não resolvido. UNIQUE parcial limita PROCESSING a um por conversation. RECONCILIATION_REQUIRED bloqueia sucessores, inclusive entre gerações. Se begin vencer uma corrida, a tentativa já iniciada precisa terminar ou ser reconciliada; não há cancelamento retroativo.
+
+A política local da 013 substitui o retry pós-begin da 012 descrito historicamente abaixo: recusas conhecidas terminam FAILED e resultados incertos exigem reconciliação, sem retry automático após dispatch. Recuperação antes de begin preserva backoff/limite. Provider continua DISABLED. Detalhes de locks, upgrade e testes: [PHASE03B2B1_REVIEW.md](PHASE03B2B1_REVIEW.md).
+
+## Fase 03B2A — infraestrutura homologada, política histórica da 012
 
 A migration `202611120012_whatsapp_outbound_outbox.sql` adiciona três tabelas: configuração por conta, jobs únicos por draft e auditoria do transporte. Não modifica migrations 001–011, funções de ingestão, HMAC, RLS anterior ou regras comerciais. Um trigger AFTER INSERT no draft faz a decisão de enqueue dentro da mesma transação do intake.
 
@@ -30,10 +40,11 @@ ADMIN possui diagnóstico somente leitura na conversa (modo, último job, tentat
 
 ### Testes nativos e benchmark locais
 
-Além de `pnpm test`, os comandos opt-in abaixo exigem `OUTBOUND_TEST_DATABASE_URL` apontando para PostgreSQL **local, vazio e descartável**, com role proprietária capaz de criar roles/schemas. O harness só aceita loopback, porta explícita >=1024, nome `motive_outbound_test_<sufixo>` e nenhum parâmetro extra na URL. Não lê .env.local. Use um banco novo para cada comando; eles aplicam 001–012 e preservam fixtures locais para inspeção.
+Além de `pnpm test`, os comandos opt-in abaixo exigem `OUTBOUND_TEST_DATABASE_URL` apontando para PostgreSQL **local, vazio e descartável**, com role proprietária capaz de criar roles/schemas. O harness só aceita loopback, porta explícita >=1024, nome `motive_outbound_test_<sufixo>` e nenhum parâmetro extra na URL. Não lê .env.local. Use um banco novo para cada comando; eles aplicam todas as migrations locais (001–013 nesta revisão) e preservam fixtures locais para inspeção.
 
 ```sh
 pnpm test:outbound:concurrency
+pnpm test:outbound:validity:concurrency
 pnpm benchmark:outbound
 ```
 

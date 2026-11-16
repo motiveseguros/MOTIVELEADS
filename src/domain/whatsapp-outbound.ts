@@ -22,7 +22,15 @@ export interface TransportConfig {
   activation_draft_sequence: number | null;
   updated_at: string;
 }
+export type CancellationReason =
+  | "PROMPT_SUPERSEDED"
+  | "CONVERSATION_CONVERTED"
+  | "CONVERSATION_CLOSED"
+  | "ADMIN_CANCELLED";
 export interface OutboundJob {
+  draft_sequence: number;
+  validity_version: 0 | 1;
+  cancellation_reason: CancellationReason | null;
   id: string;
   draft_id: string;
   whatsapp_account_id: string;
@@ -58,7 +66,10 @@ export interface OutboundEvent {
     | "FAILED"
     | "UNCERTAIN"
     | "RECOVERED_BEFORE_DISPATCH"
-    | "CANCELLED";
+    | "CANCELLED"
+    | "PROMPT_SUPERSEDED"
+    | "CONVERSATION_CONVERTED_INVALIDATION"
+    | "CONVERSATION_CLOSED_INVALIDATION";
   generation: number;
   draft_boundary: number | null;
   attempt: number | null;
@@ -81,4 +92,11 @@ export const transportFailureLabels: Record<TransportFailure, string> = {
   PROVIDER_EXCEPTION: "Resultado do provider desconhecido",
   LEASE_EXPIRED: "Prazo da tentativa expirado",
   ATTEMPTS_EXHAUSTED: "Limite de tentativas atingido",
+};
+
+export const cancellationReasonLabels: Record<CancellationReason, string> = {
+  PROMPT_SUPERSEDED: "Substituído por resposta preparada mais recente",
+  CONVERSATION_CONVERTED: "Conversa convertida em lead",
+  CONVERSATION_CLOSED: "Conversa encerrada",
+  ADMIN_CANCELLED: "Cancelado pelo administrador",
 };

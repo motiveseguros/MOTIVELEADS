@@ -16,6 +16,9 @@ const config: TransportConfig = {
 };
 const job: OutboundJob = {
   id: "job",
+  draft_sequence: 7,
+  validity_version: 1,
+  cancellation_reason: null,
   draft_id: "draft",
   whatsapp_account_id: "account",
   conversation_id: "conversation",
@@ -86,4 +89,19 @@ describe("03B2A diagnóstico sem controles de envio", () => {
     expect(s).toContain("3 / 5");
     expect(s).not.toContain("private-claim");
   });
+});
+
+it("job legado fica retido mesmo em geração LIVE atual", () => {
+  expect(html(config, { ...job, validity_version: 0 })).toContain(
+    "Job retido: upgrade",
+  );
+});
+it("motivo automático é exibido sem controles", () => {
+  const s = html(config, {
+    ...job,
+    status: "CANCELLED",
+    cancellation_reason: "PROMPT_SUPERSEDED",
+  });
+  expect(s).toContain("Substituído por resposta preparada mais recente");
+  expect(s).not.toContain("<button");
 });

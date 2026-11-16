@@ -16,7 +16,7 @@ export async function outboundDetail(
       .from("whatsapp_outbound_jobs")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
+      .order("draft_sequence", { ascending: false })
       .order("id")
       .limit(1)
       .maybeSingle(),

@@ -20,7 +20,8 @@
     "provision:whatsapp": "node scripts/provision-whatsapp-test-account.mjs",
     "provision:whatsapp:test": "node scripts/provision-whatsapp-test-account.mjs",
     "test:outbound:concurrency": "node tests/whatsapp-outbound-concurrency.mjs",
-    "benchmark:outbound": "node tests/whatsapp-outbound-concurrency.mjs --benchmark"
+    "benchmark:outbound": "node tests/whatsapp-outbound-concurrency.mjs --benchmark",
+    "test:outbound:validity:concurrency": "node tests/whatsapp-outbound-validity-concurrency.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "1.5.0",

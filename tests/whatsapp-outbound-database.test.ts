@@ -186,6 +186,14 @@ beforeAll(async () => {
   expect(await count("whatsapp_outbound_jobs")).toBe(0);
   expect(await count("messages where direction='OUTBOUND'")).toBe(0);
 });
+beforeAll(async () => {
+  await db.exec(
+    await readFile(
+      "supabase/migrations/202611160013_whatsapp_prompt_validity.sql",
+      "utf8",
+    ),
+  );
+});
 beforeEach(async () => {
   await db.exec(
     "truncate contacts,conversations,messages,webhook_events,leads,lead_events,whatsapp_outbound_transport_config,whatsapp_outbound_events cascade;update employees set active=true;update whatsapp_accounts set active=true",
@@ -252,7 +260,7 @@ describe("03B2A: fronteira, atomicidade e ausência de replay", () => {
     const j = await job();
     await expect(
       db.query(
-        "insert into whatsapp_outbound_jobs(draft_id,whatsapp_account_id,conversation_id,contact_id,activation_generation) select draft_id,whatsapp_account_id,conversation_id,contact_id,activation_generation from whatsapp_outbound_jobs where id=$1",
+        "insert into whatsapp_outbound_jobs(draft_id,draft_sequence,whatsapp_account_id,conversation_id,contact_id,activation_generation) select draft_id,draft_sequence,whatsapp_account_id,conversation_id,contact_id,activation_generation from whatsapp_outbound_jobs where id=$1",
         [j.id],
       ),
     ).rejects.toThrow("unique");
@@ -387,25 +395,19 @@ describe("03B2A: claims, retries e recuperação", () => {
     expect((await job()).status).toBe("ACCEPTED");
   });
   it.each(["RATE_LIMITED", "TEMPORARY_UNAVAILABLE"] as const)(
-    "%s faz backoff determinístico e termina em 5 claims",
+    "%s após begin é terminal sem retry automático",
     async (code) => {
       await queued();
-      for (let i = 1; i <= 5; i++) {
-        await due();
-        await claim();
-        await begin();
-        await fail(code);
-        const j = await job();
-        expect(j.attempts).toBe(i);
-        expect(j.status).toBe(i === 5 ? "FAILED" : "QUEUED");
-        const delta = (
-          await db.query<{ seconds: number }>(
-            "select extract(epoch from available_at-updated_at)::float seconds from whatsapp_outbound_jobs",
-          )
-        ).rows[0].seconds;
-        expect(delta).toBeCloseTo(Math.min(300, 30 * 2 ** (i - 1)), 0);
-        expect(await claim()).toBeNull();
-      }
+      await claim();
+      await begin();
+      await fail(code);
+      expect(await job()).toMatchObject({
+        status: "FAILED",
+        attempts: 1,
+        last_error_code: code,
+      });
+      await due();
+      expect(await claim()).toBeNull();
     },
   );
   it.each([

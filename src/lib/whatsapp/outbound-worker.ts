@@ -19,8 +19,8 @@ export interface OutboundStore {
 }
 export type WorkerResult =
   "DISABLED" | "IDLE" | "HELD" | "RECORDED" | "RECOVERY_REQUIRED";
-/** One attempt, no polling/retry loop. SQL owns leases, fencing and backoff.
- * There is intentionally no route, cron or automatic caller in 03B2A.
+/** One attempt, no polling/retry loop. SQL owns validity, ordering, leases and pre-dispatch recovery.
+ * There is intentionally no route, cron or automatic caller in 03B2A/03B2B1.
  */
 export async function runOutboundOnce(
   accountId: string,

@@ -1,5 +1,6 @@
 import {
   jobStatusLabels,
+  cancellationReasonLabels,
   transportFailureLabels,
   type TransportConfig,
   type OutboundJob,
@@ -13,7 +14,8 @@ export function WhatsAppOutboundPanel({
 }) {
   const held =
     job?.status === "QUEUED" &&
-    (config?.mode !== "LIVE" ||
+    (job.validity_version === 0 ||
+      config?.mode !== "LIVE" ||
       config.generation !== job.activation_generation);
   return (
     <section className="panel">
@@ -36,6 +38,12 @@ export function WhatsAppOutboundPanel({
                 <dt>Tentativas</dt>
                 <dd>{job.attempts} / 5</dd>
               </div>
+              {job.cancellation_reason && (
+                <div>
+                  <dt>Motivo</dt>
+                  <dd>{cancellationReasonLabels[job.cancellation_reason]}</dd>
+                </div>
+              )}
               {job.last_error_code && (
                 <div>
                   <dt>Falha</dt>
@@ -47,8 +55,8 @@ export function WhatsAppOutboundPanel({
         </dl>
         {held && (
           <p className="text-sm mt-3">
-            Job retido: transporte desabilitado ou ativação anterior. Não será
-            retomado automaticamente.
+            Job retido: upgrade, transporte desabilitado ou ativação anterior.
+            Não será retomado automaticamente.
           </p>
         )}
         <p className="muted text-xs mt-3">

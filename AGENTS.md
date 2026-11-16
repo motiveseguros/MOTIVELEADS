@@ -142,3 +142,12 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - Claim tem token, lease de dois minutos e limite de cinco tentativas. Begin confirmado precede qualquer provider; não repetir begin. Falha conhecida não aceita pode ter retry limitado; resultado incerto exige RECONCILIATION_REQUIRED. Nunca reencaminhar cegamente tentativa com dispatch_started_at após crash.
 - Desativação impede novos enqueue/claims/begin, mas não desfaz tentativa já iniciada. Recuperação é explícita, sem reaper; jobs antigos ficam retidos até decisão administrativa. Reconciliação externa e mensagem OUTBOUND real pertencem à 03B2B.
 - Preservar testes de fronteira/replay, rollback, fencing, privilégios e regressão. Conflitos reais exigem PostgreSQL nativo local com conexões independentes; PGlite não prova concorrência. Testes/benchmark nunca carregam credenciais remotas.
+
+## Fase 03B2B1 — branch de revisão, sem implantação
+
+- Base phase-03b2a-homologated/2e2c3a5; 013 não aplicada, em phase-03b2b1-review com publicação autorizada somente nessa branch e Preview bloqueado. Não publicar main/tag, aplicar migration, ativar remoto, executar jobs remotos ou conectar envio sem autorização posterior.
+- Não editar 001–012. Validade e ordem pertencem ao banco. Novo draft invalida anteriores sem dispatch, mesmo DISABLED; conversão/close invalidam transacionalmente, com motivos/auditoria técnica NULL. Preservar completion acknowledgement após vínculo automático.
+- Ordenar por draft_sequence; no máximo um PROCESSING por conversation. Predecessores não terminais, inclusive RECONCILIATION_REQUIRED e gerações antigas, bloqueiam. Legado validity_version=0 nunca é promovido automaticamente.
+- Account → conversation → config → job nas RPCs claim/begin; triggers de conversão/close apenas conversation → jobs. Não adquirir account depois de conversation nas novas funções.
+- 013 não repete dispatch iniciado: recusas conhecidas FAILED, incerteza RECONCILIATION_REQUIRED; backoff só em recuperação pré-dispatch. Preservar marcador e evidência. Se begin vencer, não fingir cancelamento retroativo.
+- Manter provider DISABLED/FAKE só em testes; sem credencial, adapter Meta, cron ou executor automático. Concorrência exige PostgreSQL nativo LOCAL isolado, nunca remoto.

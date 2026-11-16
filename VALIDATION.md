@@ -1,5 +1,30 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 03B2B1 — revisão local em 16/11/2026
+
+Base `phase-03b2a-homologated` / `2e2c3a5`. Validação realizada localmente; publicação posterior autorizada somente em `phase-03b2b1-review`, com Preview bloqueado, sem merge na main/deploy/tag. Migration nova `202611160013_whatsapp_prompt_validity.sql` ainda exclusivamente local. Relatório técnico e decisões: [PHASE03B2B1_REVIEW.md](PHASE03B2B1_REVIEW.md).
+
+| Comando           | Resultado final                           |
+| ----------------- | ----------------------------------------- |
+| pnpm lint         | Código 0                                  |
+| pnpm typecheck    | Código 0                                  |
+| pnpm test         | Código 0; 471 testes em 22 arquivos       |
+| pnpm build        | Código 0; 16 rotas, nenhuma rota de envio |
+| pnpm format       | Código 0                                  |
+| pnpm format:check | Código 0                                  |
+
+32 testes novos em relação aos 439 anteriores: 28 de validade/ordenação/fencing/grants, dois de upgrade e dois de diagnóstico. Dois testes anteriores de falha transitória foram ajustados à regra explícita da 013: sem retry automático após dispatch; recusas conhecidas terminam FAILED. O teste de banco da outbox agora aplica 013 após comprovar o upgrade antigo 011→012. Regressões 01–03B2A aprovadas. Uma anotação de tipo ausente na fixture de upgrade foi corrigida durante a validação; os resultados da tabela são da execução final.
+
+Casos permanentes A–N: supersessão de NAME e correção, batch, conversão manual/close, completion acknowledgement, PROCESSING pré-begin revogado, dispatch iniciado/RECONCILIATION_REQUIRED bloqueantes, estados terminais, paralelismo entre conversations, índice de PROCESSING único, duplicatas e gerações antigas. Rollback de invalidação/auditoria nas três transições. Begin revalidado independentemente dos triggers na fixture local; worker ligado ao begin SQL nunca chama provider após invalidação. Roles API não alteram versão, sequência ou motivo.
+
+Upgrade 012→013: fixture de dois QUEUED nas gerações 1 e 2, transporte DISABLED, zero attempts/OUTBOUND. A 013 preserva campos anteriores dos jobs, config, eventos e drafts; adiciona versão 0 e sequência, sem promover legado nem ao reativar. Preflight recusa dois PROCESSING legados da mesma conversation antes de alterar schema/dados.
+
+PostgreSQL nativo 17.11 local, conexões TCP independentes: **10 novos cenários de validade/ordem**, **13 cenários anteriores da outbox** e **7 cenários anteriores do intake** aprovados. Oito corridas observaram espera real por lock, nos dois sentidos de begin/inbound, begin/conversão, begin/close e draft/claim. Workers da mesma conversation não ultrapassam predecessor; conversations diferentes iniciam antes de qualquer commit. Zero OUTBOUND, nenhum deadlock permanente ou timeout inesperado. PGlite não foi usado como prova de concorrência.
+
+Migrations 001–012 comparadas por SHA-256 contra 2e2c3a5: doze idênticas. Arquivos alterados/novos verificados contra secrets locais sem exibir valores; zero correspondências. Sem credencial, endpoint ou chamada de envio Meta, cron ou executor automático novos. Provider permanece DISABLED/FAKE apenas em testes. Build lê configuração local existente sem conectar ao remoto; .env.local não foi modificado nem versionado. Logs e hashes em work/phase03b2b1 fora do Git; PostgreSQL local encerrado e senha temporária descartada.
+
+Nenhum db push/dry-run remoto, acesso ao Supabase remoto, execução de jobs remotos, mudança de transporte remoto, alteração Meta ou publicação foi feito nesta fase. A homologação remota continua na 012. A 013 depende de revisão, autorização e homologação próprias; os resultados locais não equivalem a Auth/PostgREST remoto.
+
 ## Fase 03B2A homologada em staging — 16/11/2026
 
 Migration 012 aplicada remotamente com autorização; migration list confirmou 001–012 iguais no local e remoto. Código funcional `d0ed2a7` publicado por fast-forward na main. Deployment `dpl_3MR1MreJDmhpw9YHYfxyPK6Xqh1M` READY, associado a https://motive-leads-staging.vercel.app. As mensagens do teste foram recebidas em 13/11; a última conferência e desativação ocorreram em 16/11.
