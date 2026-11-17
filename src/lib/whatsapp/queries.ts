@@ -28,10 +28,10 @@ export async function conversationDetail(id: string, page: number) {
       .eq("id", conversation.contact_id)
       .maybeSingle(),
     db
-      .from("messages")
+      .from("message_timeline")
       .select("*", { count: "exact" })
       .eq("conversation_id", id)
-      .order("provider_timestamp", { ascending: false, nullsFirst: false })
+      .order("timeline_at", { ascending: false })
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range((page - 1) * 25, page * 25 - 1),

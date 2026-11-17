@@ -1,10 +1,12 @@
-# MOTIVE LEADS — Fase 03B2B1: validade e ordem homologadas
+# MOTIVE LEADS — Fase 03B2B2: transporte Meta em revisão
 
 Central interna de captação, gerenciamento e distribuição de leads da Motive Corretora.
 
 Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, componentes shadcn/ui, Supabase PostgreSQL/Auth/RLS, ESLint e Git. A Fase 02C homologou o recebimento real do número de teste da Meta. A Fase 03A acrescenta conversão manual de conversa em lead. A Fase 03B1 homologou coleta determinística com criação automática de lead, sem envio, IA/LLM ou distribuição automática.
 
 ## Estado da entrega
+
+**Fase 03B2B2 local, somente branch de revisão:** migration 014 e provider Meta server-only, sem aplicação remota ou envio real. Preview bloqueado em phase-03b2b2-review. Os três controles exigidos são banco LIVE, WHATSAPP_OUTBOUND_PROVIDER=META e WHATSAPP_OUTBOUND_EXECUTION_ENABLED=true; defaults continuam fechados. Token sozinho ou deploy não envia. Consulte [PHASE03B2B2_REVIEW.md](PHASE03B2B2_REVIEW.md) para contrato, concorrência, limitações e resultados.
 
 **Fase 03B2B1 homologada em staging em 16/11/2026:** migration 013 remota, código funcional `ebd8112` na main e deployment READY. Três inbounds reais de um contato novo comprovaram supersede de QUEUED e PROCESSING antes de begin; token revogado recusado com 40001. Estado final: DISABLED, geração 3/fronteira 9, dois legados validity_version=0 intactos, dois jobs novos CANCELLED/PROMPT_SUPERSEDED e último QUEUED. Zero dispatch/OUTBOUND/provider. Marco: `phase-03b2b1-homologated`. RLS SQL remota e limites em [VALIDATION.md](VALIDATION.md); [relatório da 013](PHASE03B2B1_REVIEW.md).
 
@@ -15,6 +17,14 @@ Implementação em Next.js App Router, TypeScript strict, Tailwind CSS 4, compon
 As Fases 01 e 02A foram homologadas pelo usuário no Supabase remoto. A Fase 02B foi homologada em staging pelo usuário. A Fase 02C1 foi publicada no staging em 05/11/2026, commit `748a049`, com autenticação HMAC dos POSTs. A Fase 02C foi homologada em 06/11/2026 com o número de teste da Meta, recebimento real e RLS ADMIN/AGENT. Marco publicado: `phase-02c-homologated`, commit `f9581eb`. O número oficial não foi conectado. A migration 010 foi aplicada remotamente com autorização em 09/11/2026; o histórico 001–010 está sincronizado. A Fase 03A foi homologada no staging em 11/11/2026: conversão, repetição protegida, histórico, mensagens preservadas e RLS após atribuição/transferência. Marco: `phase-03a-homologated`. O marco Git da Fase 02A é a tag `phase-02a-homologated`, commit `251d478`. A execução conectada exige as variáveis abaixo. Nenhuma credencial foi incluída no repositório. Sem configuração, a aplicação apresenta uma tela de orientação; não existe modo de autenticação simulado.
 
 Os testes de banco executam as migrations reais no PostgreSQL embarcado PGlite, com roles e auth.uid() de teste. Eles validam políticas e funções SQL, mas não substituem homologação de Supabase Auth, cookies, PostgREST e navegação autenticada no ambiente de destino. Consulte [VALIDATION.md](VALIDATION.md) para resultados e limites da verificação.
+
+## Fase 03B2B2 — preparação controlada
+
+O exemplo de ambiente contém WHATSAPP_OUTBOUND_PROVIDER=DISABLED, WHATSAPP_OUTBOUND_EXECUTION_ENABLED=false, WHATSAPP_GRAPH_API_VERSION=v27.0 e valores vazios para WHATSAPP_ACCESS_TOKEN e WHATSAPP_OUTBOUND_ALLOWED_PHONE_NUMBER_ID. Todas são server-side; nunca prefixar token com NEXT_PUBLIC nem expor em logs/browser. Nenhum token real é necessário para testes locais.
+
+O comando pnpm outbound:once <UUID-da-conta-de-teste> foi preparado, mas **não executado nesta entrega**. Exige TTY, confirmação vinculada ao projeto/conta e o número Meta de teste autorizado; processa no máximo um job. Não há cron/worker automático. Só executar após autorização futura explícita para envio. Não usar drafts históricos como fila.
+
+Meta aceita → uma OUTBOUND PENDING com wamid real, provider_timestamp NULL e vínculo único ao job. Status autenticados atualizam a mesma linha. Callbacks antecipados são guardados de forma durável e reconciliados atomicamente. Histórico ordena por COALESCE(provider_timestamp,created_at), sem fabricar horário do provider. Janela de 24h é revalidada em claim/begin; expiração cancela sem POST. Resultado incerto exige reconciliação e nunca reenvio automático.
 
 ## Fase 03B2B1 — validade e ordem antes de qualquer transporte
 

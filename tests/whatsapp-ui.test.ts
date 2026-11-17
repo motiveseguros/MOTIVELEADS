@@ -104,7 +104,12 @@ describe("conversas: renderização de leitura", () => {
     vi.mocked(conversationDetail).mockResolvedValue({
       conversation,
       contact,
-      messages: [message],
+      messages: [
+        {
+          ...message,
+          timeline_at: message.provider_timestamp ?? message.created_at,
+        },
+      ],
       total: 1,
     });
     const html = renderToStaticMarkup(

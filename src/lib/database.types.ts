@@ -57,6 +57,15 @@ export interface Database {
       conversations: Table<Conversation>;
       messages: Table<Message>;
       webhook_events: Table<WebhookEvent>;
+      whatsapp_pending_statuses: Table<{
+        event_id: string;
+        whatsapp_account_id: string;
+        external_message_id: string;
+        wa_id: string;
+        status: MessageStatus;
+        provider_timestamp: string;
+        resolved_message_id: string | null;
+      }>;
       profiles: Table<Profile>;
       employees: Table<Employee>;
       products: Table<Product>;
@@ -65,12 +74,39 @@ export interface Database {
       lead_events: Table<LeadEvent>;
     };
     Views: {
+      message_timeline: {
+        Row: { [K in keyof Message]: Message[K] } & { timeline_at: string };
+        Relationships: [];
+      };
       conversation_inbox: {
         Row: { [K in keyof ConversationInbox]: ConversationInbox[K] };
         Relationships: [];
       };
     };
     Functions: {
+      whatsapp_meta_target: Fn<
+        { p_account_id: string; p_phone_number_id: string },
+        boolean
+      >;
+      accept_meta_whatsapp_outbound: Fn<
+        {
+          p_job_id: string;
+          p_claim_token: string;
+          p_external_message_id: string;
+        },
+        string
+      >;
+      fail_meta_whatsapp_outbound_job: Fn<
+        {
+          p_job_id: string;
+          p_claim_token: string;
+          p_failure: TransportFailure;
+          p_http_status: number | null;
+          p_error_code: number | null;
+          p_error_subcode: number | null;
+        },
+        undefined
+      >;
       set_whatsapp_outbound_transport: Fn<
         { p_account_id: string; p_mode: TransportMode },
         TransportConfig

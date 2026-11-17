@@ -14,6 +14,9 @@ const input = {
 };
 function fixtures() {
   const store: OutboundStore = {
+    metaTarget: vi.fn(async () => true),
+    acceptMeta: vi.fn(async () => {}),
+    failMeta: vi.fn(async () => {}),
     claim: vi.fn(async () => claim),
     begin: vi.fn(async () => input),
     acceptFake: vi.fn(async () => {}),

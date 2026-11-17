@@ -31,6 +31,10 @@ const job: OutboundJob = {
   lease_expires_at: null,
   claim_token: null,
   dispatch_started_at: null,
+  outbound_message_id: null,
+  provider_http_status: null,
+  provider_error_code: null,
+  provider_error_subcode: null,
   provider_kind: null,
   provider_message_id: null,
   last_error_code: null,
@@ -54,7 +58,7 @@ describe("03B2A diagnóstico sem controles de envio", () => {
     const s = html(config, job);
     expect(s).toContain("Ativo");
     expect(s).toContain("Na fila");
-    expect(s).toContain("Envio real desabilitado");
+    expect(s).toContain("Envio exige habilitação explícita");
     expect(s).toContain("jobs não comprovam entrega");
   });
   it.each(["DISABLED", "LIVE"] as const)(
@@ -105,3 +109,27 @@ it("motivo automático é exibido sem controles", () => {
   expect(s).toContain("Substituído por resposta preparada mais recente");
   expect(s).not.toContain("<button");
 });
+
+it.each(["PENDING", "SENT", "DELIVERED", "READ", "FAILED"] as const)(
+  "META exibe status %s sem tokens/evidência bruta",
+  (messageStatus) => {
+    const s = renderToStaticMarkup(
+      createElement(WhatsAppOutboundPanel, {
+        config,
+        job: {
+          ...job,
+          status: "ACCEPTED",
+          provider_kind: "META",
+          claim_token: "PRIVATE_CLAIM",
+          provider_message_id: "wamid.PRIVATE_ID",
+        },
+        messageStatus,
+      }),
+    );
+    expect(s).toContain("Aceito pela Meta");
+    expect(s).not.toContain("Aceito em simulação");
+    expect(s).not.toContain("PRIVATE");
+    if (messageStatus === "PENDING") expect(s).toContain("aguardando status");
+    else expect(s).not.toContain("aguardando status");
+  },
+);

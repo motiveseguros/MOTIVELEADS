@@ -467,7 +467,7 @@ describe("WhatsApp: callbacks fora de ordem", () => {
     ).toEqual({ status: "READ" });
     expect((await ingest([update])).duplicates).toBe(1);
   });
-  it("entrega supera falha; falha supera envio; remetente ou saída desconhecida aborta", async () => {
+  it("entrega supera falha; remetente divergente aborta; status antecipado é durável", async () => {
     await ingest([inboundEvent()]);
     const c = await conversation();
     await db.query(
@@ -501,13 +501,18 @@ describe("WhatsApp: callbacks fora de ordem", () => {
       ).rows[0],
     ).toEqual({ status: "DELIVERED" });
     const before = await counts();
-    await expect(
-      ingest([{ ...update, external_message_id: "unknown" }]),
-    ).rejects.toThrow("desconhecida");
+    await ingest([{ ...update, external_message_id: "unknown" }]);
+    expect(
+      (
+        await db.query(
+          "select external_message_id,resolved_message_id from whatsapp_pending_statuses where external_message_id='unknown'",
+        )
+      ).rows,
+    ).toEqual([{ external_message_id: "unknown", resolved_message_id: null }]);
     await expect(
       ingest([{ ...update, status: "READ", wa_id: "other" }]),
     ).rejects.toThrow("desconhecida");
-    expect(await counts()).toEqual(before);
+    expect(await counts()).toEqual({ ...before, events: before.events + 1 });
   });
 });
 

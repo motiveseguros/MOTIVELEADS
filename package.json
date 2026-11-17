@@ -21,7 +21,9 @@
     "provision:whatsapp:test": "node scripts/provision-whatsapp-test-account.mjs",
     "test:outbound:concurrency": "node tests/whatsapp-outbound-concurrency.mjs",
     "benchmark:outbound": "node tests/whatsapp-outbound-concurrency.mjs --benchmark",
-    "test:outbound:validity:concurrency": "node tests/whatsapp-outbound-validity-concurrency.mjs"
+    "test:outbound:validity:concurrency": "node tests/whatsapp-outbound-validity-concurrency.mjs",
+    "outbound:once": "tsx --conditions=react-server scripts/run-whatsapp-outbound-once.ts",
+    "test:outbound:meta:concurrency": "node tests/whatsapp-meta-concurrency.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "1.5.0",
@@ -49,6 +51,7 @@
     "prettier": "3.9.10",
     "supabase": "^2.122.0",
     "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.5"
   },

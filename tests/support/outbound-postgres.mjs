@@ -99,7 +99,7 @@ export async function createHarness() {
         waba_id: "10001",
         phone_number_id: "20001",
         external_message_id: "outbox.native." + serial,
-        provider_timestamp: String(1800000000 + serial),
+        provider_timestamp: String(Math.floor(Date.now() / 1000) - 10),
         wa_id: wa,
         type: "text",
         text_body: text,

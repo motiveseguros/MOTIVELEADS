@@ -4,7 +4,8 @@
     "deploymentEnabled": {
       "phase-03b1-review": false,
       "phase-03b2a-review": false,
-      "phase-03b2b1-review": false
+      "phase-03b2b1-review": false,
+      "phase-03b2b2-review": false
     }
   }
 }

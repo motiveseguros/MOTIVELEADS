@@ -34,7 +34,7 @@ async function legacy() {
         inboundEvent({
           text_body: text,
           external_message_id: "upgrade." + serial,
-          provider_timestamp: String(1800000000 + serial),
+          provider_timestamp: String(Math.floor(Date.now() / 1000) - 10),
         }),
       ]),
     ]);
@@ -197,6 +197,75 @@ it("upgrade recusa estado legado com dois PROCESSING na mesma conversa sem apaga
         )
       ).rows,
     ).toHaveLength(0);
+  } finally {
+    await db.close();
+  }
+});
+
+it("upgrade 013→014 não promove legados nem toca config, eventos e drafts", async () => {
+  const h = await legacy();
+  const { db, mode, ingest } = h;
+  try {
+    await mode("LIVE");
+    await ingest("Oi");
+    await mode("DISABLED");
+    await ingest("Ana Teste");
+    await mode("LIVE");
+    await ingest("Consórcio");
+    await mode("DISABLED");
+    await db.exec(
+      await readFile(
+        "supabase/migrations/202611160013_whatsapp_prompt_validity.sql",
+        "utf8",
+      ),
+    );
+    const before = (
+      await db.query<Record<string, unknown>>(
+        "select * from whatsapp_outbound_jobs order by draft_sequence",
+      )
+    ).rows;
+    const snapshots: Record<string, unknown[]> = {};
+    for (const t of [
+      "whatsapp_outbound_transport_config",
+      "whatsapp_outbound_events",
+      "whatsapp_outbound_drafts",
+    ])
+      snapshots[t] = (await db.query("select * from " + t)).rows;
+    await db.exec(
+      await readFile(
+        "supabase/migrations/202611160014_whatsapp_meta_transport.sql",
+        "utf8",
+      ),
+    );
+    const after = (
+      await db.query<Record<string, unknown>>(
+        "select * from whatsapp_outbound_jobs order by draft_sequence",
+      )
+    ).rows;
+    expect(
+      after.map((j) =>
+        Object.fromEntries(Object.keys(before[0]).map((k) => [k, j[k]])),
+      ),
+    ).toEqual(before);
+    expect(
+      after.every(
+        (j) =>
+          j.validity_version === 0 &&
+          j.attempts === 0 &&
+          j.status === "QUEUED" &&
+          j.outbound_message_id === null,
+      ),
+    ).toBe(true);
+    for (const [t, rows] of Object.entries(snapshots))
+      expect((await db.query("select * from " + t)).rows).toEqual(rows);
+    await mode("LIVE");
+    expect(
+      (
+        await db.query("select public.claim_whatsapp_outbound_job($1) j", [
+          h.account,
+        ])
+      ).rows,
+    ).toEqual([{ j: null }]);
   } finally {
     await db.close();
   }

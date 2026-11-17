@@ -1,5 +1,22 @@
 # Verificação — MOTIVE LEADS
 
+## Fase 03B2B2 — validação local, 17/11/2026
+
+Base a9cd178 / phase-03b2b1-homologated. Migration 014 somente local; branch phase-03b2b2-review, Preview bloqueado. Nenhum acesso ao banco remoto, db push, envio, token real, configuração Meta, deploy ou tag.
+
+| Comando           | Resultado                                                           |
+| ----------------- | ------------------------------------------------------------------- |
+| pnpm lint         | Aprovado, exit 0                                                    |
+| pnpm typecheck    | Aprovado, exit 0                                                    |
+| pnpm test         | 558 testes aprovados, 24 arquivos, exit 0                           |
+| pnpm build        | Aprovado na repetição, exit 0; aviso de segurança Next.js permanece |
+| pnpm format       | Aprovado, exit 0                                                    |
+| pnpm format:check | Aprovado, exit 0                                                    |
+
+PostgreSQL nativo 17.11: **40 cenários aprovados** (10 Meta novos, 13 outbox/crash, 10 validade, 7 intake), conexões TCP independentes em cluster local isolado. Aceitação duplicada gera uma message e um evento; callbacks anteriores/posteriores à aceitação convergem para a mesma linha; rollback não libera sucessor e reconciliação bloqueia avanço. Zero HTTP real.
+
+Migrations 001–013 preservadas por SHA-256; upgrade 013→014 e instalação nova testados. Inspeção dos 17 bundles client sem secrets/endpoint Meta/Bearer. Operação real e UI/Auth/PostgREST remotos permanecem pendentes. pnpm audit: dois avisos moderados de dependências anteriores (Next.js/minimatch), sem upgrade fora do escopo. Contrato, cobertura, riscos e fontes em [PHASE03B2B2_REVIEW.md](PHASE03B2B2_REVIEW.md).
+
 ## Fase 03B2B1 homologada em staging — 16/11/2026
 
 Migration 202611160013_whatsapp_prompt_validity.sql aplicada com autorização; migration list confirmou 001–013 Local = Remote. Código funcional ebd8112 publicado por fast-forward na main. Deployment dpl_5cCmbB31BRpQGYpgCQXuuWqzXkF4 READY, associado a https://motive-leads-staging.vercel.app. Marco: phase-03b2b1-homologated.

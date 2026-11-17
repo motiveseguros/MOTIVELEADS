@@ -55,7 +55,7 @@ function event(text = "Oi", extra = {}) {
   return inboundEvent({
     text_body: text,
     external_message_id: "outbox.local." + serial,
-    provider_timestamp: String(1800000000 + serial),
+    provider_timestamp: String(Math.floor(Date.now() / 1000) - 10),
     ...extra,
   });
 }
@@ -523,6 +523,13 @@ it("worker não chama provider quando SQL invalida o claim antes de begin", asyn
   const result = await runOutboundOnce(
     account,
     {
+      metaTarget: async () => false,
+      acceptMeta: async () => {
+        throw new Error("Unexpected Meta");
+      },
+      failMeta: async () => {
+        throw new Error("Unexpected Meta");
+      },
       claim: async () => claim(),
       begin: async (c) => {
         await ingest(event("Ana Teste"));

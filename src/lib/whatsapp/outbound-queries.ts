@@ -23,5 +23,17 @@ export async function outboundDetail(
   ]);
   if (config.error || job.error)
     throw new Error("Falha ao carregar diagnóstico do transporte.");
-  return { config: config.data, job: job.data };
+  const message = job.data?.outbound_message_id
+    ? await db
+        .from("messages")
+        .select("status")
+        .eq("id", job.data.outbound_message_id)
+        .maybeSingle()
+    : null;
+  if (message?.error) throw new Error("Falha ao carregar status da mensagem.");
+  return {
+    config: config.data,
+    job: job.data,
+    messageStatus: message?.data?.status ?? null,
+  };
 }

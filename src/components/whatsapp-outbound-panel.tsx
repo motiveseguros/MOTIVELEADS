@@ -1,3 +1,4 @@
+import { messageStatusLabels, type MessageStatus } from "@/domain/whatsapp";
 import {
   jobStatusLabels,
   cancellationReasonLabels,
@@ -8,9 +9,11 @@ import {
 export function WhatsAppOutboundPanel({
   config,
   job,
+  messageStatus = null,
 }: {
   config: TransportConfig | null;
   job: OutboundJob | null;
+  messageStatus?: MessageStatus | null;
 }) {
   const held =
     job?.status === "QUEUED" &&
@@ -30,10 +33,28 @@ export function WhatsAppOutboundPanel({
           </div>
           <div>
             <dt>Último job da conversa</dt>
-            <dd>{job ? jobStatusLabels[job.status] : "Nenhum"}</dd>
+            <dd>
+              {job?.status === "ACCEPTED" && job.provider_kind === "META"
+                ? messageStatus === "PENDING" || !messageStatus
+                  ? "Aceito pela Meta · aguardando status"
+                  : "Aceito pela Meta"
+                : job
+                  ? jobStatusLabels[job.status]
+                  : "Nenhum"}
+            </dd>
           </div>
           {job && (
             <>
+              <div>
+                <dt>Provider</dt>
+                <dd>{job.provider_kind ?? "Nenhum"}</dd>
+              </div>
+              {messageStatus && (
+                <div>
+                  <dt>Status da mensagem</dt>
+                  <dd>{messageStatusLabels[messageStatus]}</dd>
+                </div>
+              )}
               <div>
                 <dt>Tentativas</dt>
                 <dd>{job.attempts} / 5</dd>
@@ -60,8 +81,8 @@ export function WhatsAppOutboundPanel({
           </p>
         )}
         <p className="muted text-xs mt-3">
-          Envio real desabilitado nesta fase. Drafts são respostas preparadas;
-          jobs não comprovam entrega.
+          Envio exige habilitação explícita e execução controlada. Drafts são
+          respostas preparadas; jobs não comprovam entrega.
         </p>
       </div>
     </section>

@@ -153,3 +153,14 @@ Atualizar README e VALIDATION quando setup, arquitetura ou verificação mudar.
 - Account → conversation → config → job nas RPCs claim/begin; triggers de conversão/close apenas conversation → jobs. Não adquirir account depois de conversation nas novas funções.
 - 013 não repete dispatch iniciado: recusas conhecidas FAILED, incerteza RECONCILIATION_REQUIRED; backoff só em recuperação pré-dispatch. Preservar marcador e evidência. Se begin vencer, não fingir cancelamento retroativo.
 - Manter provider DISABLED/FAKE só em testes; sem credencial, adapter Meta, cron ou executor automático. Concorrência exige PostgreSQL nativo LOCAL isolado, nunca remoto.
+
+## Fase 03B2B2 — revisão local, transporte não autorizado para operação
+
+- Exceção de implementação autorizada: adapter META, migration 014 e executor manual, publicados somente em phase-03b2b2-review com Preview bloqueado. Preservar migrations 001–013. Não fazer db push, merge/main, tag, deploy, configurar token real ou executar outbound:once nesta entrega.
+- Três controles independentes: banco LIVE, provider META e execução explicitamente true. Defaults fechados. WHATSAPP_ACCESS_TOKEN exclusivamente server-only; nunca NEXT_PUBLIC, log, erro, banco ou bundle. FAKE continua test-only.
+- Provider faz um POST versionado, timeout 15s, resposta limitada e nenhum retry. Somente begin fornece alvo/texto. 2xx exige um wamid válido; aceitação HTTP não é entrega. Erros guardam apenas categorias e números.
+- acceptMeta separado de acceptFake, transação única para OUTBOUND PENDING, vínculo/job/auditoria e pendências. provider_timestamp NULL, sem invenção; timeline usa COALESCE com created_at. Mesmo job/token/wamid é no-op. Lease inválido/commit perdido exige reconciliação, nunca novo send.
+- Status antecipado fica durável em whatsapp_pending_statuses, sem acesso das roles de API. Limite 1.000 não resolvidos por conta, falha atômica/503 ao exceder; nunca descartar silenciosamente. Validar conta/contato/direção e precedência monotônica.
+- Claim/begin revalidam janela conservadora de 24h pelo inbound; fora dela cancelar com motivo explícito. Preservar validade, geração, fencing e ordem da 013. Não promover jobs históricos.
+- Executor manual exige TTY, UUID da conta e confirmação exata do projeto, limitado ao Phone Number ID de teste 1519898697862586 e no máximo um job. Sem cron, rota, --yes ou pipe. Configurar/operar remotamente exige autorização própria.
+- Testes de provider interceptam HTTP; concorrência somente PostgreSQL local isolado. Não declarar homologação Meta/Auth/PostgREST sem executar. Relatório em PHASE03B2B2_REVIEW.md; riscos de dependências registrados separadamente.

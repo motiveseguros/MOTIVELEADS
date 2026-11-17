@@ -26,7 +26,8 @@ export type CancellationReason =
   | "PROMPT_SUPERSEDED"
   | "CONVERSATION_CONVERTED"
   | "CONVERSATION_CLOSED"
-  | "ADMIN_CANCELLED";
+  | "ADMIN_CANCELLED"
+  | "CUSTOMER_SERVICE_WINDOW_EXPIRED";
 export interface OutboundJob {
   draft_sequence: number;
   validity_version: 0 | 1;
@@ -44,7 +45,11 @@ export interface OutboundJob {
   lease_expires_at: string | null;
   claim_token: string | null;
   dispatch_started_at: string | null;
-  provider_kind: "FAKE" | null;
+  provider_kind: "FAKE" | "META" | null;
+  outbound_message_id: string | null;
+  provider_http_status: number | null;
+  provider_error_code: number | null;
+  provider_error_subcode: number | null;
   provider_message_id: string | null;
   last_error_code: TransportFailure | null;
   created_at: string;
@@ -69,7 +74,11 @@ export interface OutboundEvent {
     | "CANCELLED"
     | "PROMPT_SUPERSEDED"
     | "CONVERSATION_CONVERTED_INVALIDATION"
-    | "CONVERSATION_CLOSED_INVALIDATION";
+    | "CONVERSATION_CLOSED_INVALIDATION"
+    | "ACCEPTED_META"
+    | "META_REJECTED"
+    | "META_UNCERTAIN"
+    | "SERVICE_WINDOW_EXPIRED";
   generation: number;
   draft_boundary: number | null;
   attempt: number | null;
@@ -99,4 +108,5 @@ export const cancellationReasonLabels: Record<CancellationReason, string> = {
   CONVERSATION_CONVERTED: "Conversa convertida em lead",
   CONVERSATION_CLOSED: "Conversa encerrada",
   ADMIN_CANCELLED: "Cancelado pelo administrador",
+  CUSTOMER_SERVICE_WINDOW_EXPIRED: "Janela de atendimento encerrada",
 };
